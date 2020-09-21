@@ -1,0 +1,575 @@
+From a139526f7e34ed5fd9033f1049698c72bed1fc64 Mon Sep 17 00:00:00 2001
+From: hyyoxhk <hyyoxhk@163.com>
+Date: Fri, 4 Sep 2020 22:46:57 +0800
+Subject: [PATCH 1/2] Add support for Davicom DM96xx based USB 10/100 ethernet
+ devices
+
+Ported from Linux driver - drivers/net/usb/dm9601.c
+
+Signed-off-by: hyyoxhk <hyyoxhk@163.com>
+---
+ drivers/usb/eth/Kconfig  |   8 +
+ drivers/usb/eth/Makefile |   1 +
+ drivers/usb/eth/dm9601.c | 521 +++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 530 insertions(+)
+ create mode 100644 drivers/usb/eth/dm9601.c
+
+diff --git a/drivers/usb/eth/Kconfig b/drivers/usb/eth/Kconfig
+index 2f6bfa8e71..8a47ca0ec4 100644
+--- a/drivers/usb/eth/Kconfig
++++ b/drivers/usb/eth/Kconfig
+@@ -62,4 +62,12 @@ config USB_ETHER_SMSC95XX
+ 	  Say Y here if you would like to support SMSC LAN95xx based USB 2.0
+ 	  Ethernet Devices.
+ 
++config USB_ETHER_DM9601
++	bool "Davicom DM96xx based USB 10/100 ethernet devices"
++	depends on USB_HOST_ETHER
++	depends on DM_ETH
++	---help---
++	  This option adds support for Davicom DM9601/DM9620/DM9621A
++	  based USB 10/100 Ethernet adapters.
++
+ endif
+diff --git a/drivers/usb/eth/Makefile b/drivers/usb/eth/Makefile
+index 2e5d0782e8..044b12f028 100644
+--- a/drivers/usb/eth/Makefile
++++ b/drivers/usb/eth/Makefile
+@@ -9,6 +9,7 @@ obj-$(CONFIG_USB_ETHER_ASIX) += asix.o
+ obj-$(CONFIG_USB_ETHER_ASIX88179) += asix88179.o
+ obj-$(CONFIG_USB_ETHER_MCS7830) += mcs7830.o
+ obj-$(CONFIG_USB_ETHER_SMSC95XX) += smsc95xx.o
++obj-$(CONFIG_USB_ETHER_DM9601) += dm9601.o
+ obj-$(CONFIG_USB_ETHER_LAN75XX) += lan7x.o lan75xx.o
+ obj-$(CONFIG_USB_ETHER_LAN78XX) += lan7x.o lan78xx.o
+ obj-$(CONFIG_USB_ETHER_RTL8152) += r8152.o r8152_fw.o
+diff --git a/drivers/usb/eth/dm9601.c b/drivers/usb/eth/dm9601.c
+new file mode 100644
+index 0000000000..f5956c7c73
+--- /dev/null
++++ b/drivers/usb/eth/dm9601.c
+@@ -0,0 +1,521 @@
++// SPDX-License-Identifier: GPL-2.0+
++/*
++ * Davicom DM96xx USB 10/100Mbps ethernet devices
++ *
++ * Ported from Linux driver - drivers/net/usb9601.c
++ *
++ * Copyright (C) 2020 hey <hyyoxhk@163.com>
++ */
++
++#include <common.h>
++#include <linux/delay.h>
++#include <dm.h>
++#include <usb.h>
++#include <memalign.h>
++#include <errno.h>
++#include <linux/mii.h>
++#include "usb_ether.h"
++
++/* control requests */
++#define DM_READ_REGS	0x00
++#define DM_WRITE_REGS	0x01
++#define DM_READ_MEMS	0x02
++#define DM_WRITE_REG	0x03
++#define DM_WRITE_MEMS	0x05
++#define DM_WRITE_MEM	0x07
++
++/* registers */
++#define DM_NET_CTRL	0x00
++#define DM_RX_CTRL	0x05
++#define DM_SHARED_CTRL	0x0b
++#define DM_SHARED_ADDR	0x0c
++#define DM_SHARED_DATA	0x0d	/* low + high */
++#define DM_PHY_ADDR	0x10	/* 6 bytes */
++#define DM_MCAST_ADDR	0x16	/* 8 bytes */
++#define DM_GPR_CTRL	0x1e
++#define DM_GPR_DATA	0x1f
++#define DM_CHIP_ID	0x2c
++#define DM_MODE_CTRL	0x91	/* only on dm9620 */
++
++/* chip id values */
++#define ID_DM9601	0
++#define ID_DM9620	1
++
++#define DM_MAX_MCAST	64
++#define DM_MCAST_SIZE	8
++#define DM_EEPROM_LEN	256
++#define DM_TX_OVERHEAD	2	/* 2 byte header */
++#define DM_RX_OVERHEAD	7	/* 3 byte header + 4 byte crc tail */
++#define DM_TIMEOUT	1000
++
++#define USB_CTRL_SET_TIMEOUT 5000
++#define PHY_CONNECT_TIMEOUT 5000
++#define USB_BULK_SEND_TIMEOUT 5000
++#define USB_BULK_RECV_TIMEOUT 5000
++#define RX_URB_SIZE 2048
++
++/* driver private */
++struct dm9601_private {
++	struct ueth_data ueth;
++};
++
++static int dm_read(struct usb_device *udev, u8 reg, u16 length, void *data)
++{
++	ALLOC_CACHE_ALIGN_BUFFER(u8, v, length);
++	int err;
++
++	err = usb_control_msg(udev, usb_rcvctrlpipe(udev, 0),
++			      DM_READ_REGS,
++			      USB_DIR_IN | USB_TYPE_VENDOR | USB_RECIP_DEVICE,
++			      0, reg, v, length,
++			      USB_CTRL_SET_TIMEOUT);
++
++	memcpy(data, v, length);
++
++	if (err != length && err >= 0)
++		err = -EINVAL;
++
++	return err;
++}
++
++static int dm_read_reg(struct usb_device *udev, u8 reg, u8 *value)
++{
++	return dm_read(udev, reg, 1, value);
++}
++
++static int dm_write(struct usb_device *udev, u8 reg, u16 length, void *data)
++{
++	ALLOC_CACHE_ALIGN_BUFFER(u8, v, length);
++	int err;
++
++	memcpy(v, data, length);
++
++	err = usb_control_msg(udev, usb_sndctrlpipe(udev, 0),
++			      DM_WRITE_REGS,
++			      USB_DIR_OUT | USB_TYPE_VENDOR | USB_RECIP_DEVICE,
++			      0, reg, v, length,
++			      USB_CTRL_SET_TIMEOUT);
++	if (err >= 0 && err < length)
++		err = -EINVAL;
++
++	return err;
++}
++
++static int dm_write_reg(struct usb_device *udev, u8 reg, u8 value)
++{
++	ALLOC_CACHE_ALIGN_BUFFER(u8, v, 1);
++	v[0] = value;
++
++	return usb_control_msg(udev, usb_sndctrlpipe(udev, 0),
++				DM_WRITE_REG,
++				USB_DIR_OUT | USB_TYPE_VENDOR | USB_RECIP_DEVICE,
++				v[0], reg, NULL, 0,
++				USB_CTRL_SET_TIMEOUT);
++}
++
++static int dm_read_shared_word(struct usb_device *udev, int phy, u8 reg, __le16 *value)
++{
++	int ret, i;
++
++	dm_write_reg(udev, DM_SHARED_ADDR, phy ? (reg | 0x40) : reg);
++	dm_write_reg(udev, DM_SHARED_CTRL, phy ? 0xc : 0x4);
++
++	for (i = 0; i < DM_TIMEOUT; i++) {
++		u8 tmp = 0;
++
++		udelay(1);
++		ret = dm_read_reg(udev, DM_SHARED_CTRL, &tmp);
++		if (ret < 0)
++			goto out;
++
++		/* ready */
++		if ((tmp & 1) == 0)
++			break;
++	}
++
++	if (i == DM_TIMEOUT) {
++		printf("%s read timed out!\n", phy ? "phy" : "eeprom");
++		ret = -EIO;
++		goto out;
++	}
++
++	dm_write_reg(udev, DM_SHARED_CTRL, 0x0);
++	ret = dm_read(udev, DM_SHARED_DATA, 2, value);
++
++out:
++	return ret;
++}
++
++static int dm_write_shared_word(struct usb_device *udev, int phy, u8 reg, __le16 value)
++{
++	int ret, i;
++
++	ret = dm_write(udev, DM_SHARED_DATA, 2, &value);
++	if (ret < 0)
++		goto out;
++
++	dm_write_reg(udev, DM_SHARED_ADDR, phy ? (reg | 0x40) : reg);
++	dm_write_reg(udev, DM_SHARED_CTRL, phy ? 0x1a : 0x12);
++
++	for (i = 0; i < DM_TIMEOUT; i++) {
++		u8 tmp = 0;
++
++		udelay(1);
++		ret = dm_read_reg(udev, DM_SHARED_CTRL, &tmp);
++		if (ret < 0)
++			goto out;
++
++		/* ready */
++		if ((tmp & 1) == 0)
++			break;
++	}
++
++	if (i == DM_TIMEOUT) {
++		printf("%s write timed out!\n", phy ? "phy" : "eeprom");
++		ret = -EIO;
++		goto out;
++	}
++
++	dm_write_reg(udev, DM_SHARED_CTRL, 0x0);
++
++out:
++	return ret;
++}
++
++static int dm9601_mdio_read(struct ueth_data *ueth, int phy_id, int loc)
++{
++	__le16 res;
++
++	if (phy_id) {
++		printf("Only internal phy supported\n");
++		return 0;
++	}
++
++	dm_read_shared_word(ueth->pusb_dev, 1, loc, &res);
++
++	return le16_to_cpu(res);
++}
++
++static void dm9601_mdio_write(struct ueth_data *ueth, int phy_id, int loc, int val)
++{
++	__le16 res = cpu_to_le16(val);
++
++	if (phy_id) {
++		printf("Only internal phy supported\n");
++		return;
++	}
++
++	dm_write_shared_word(ueth->pusb_dev, 1, loc, res);
++}
++
++static int dm9601_set_mac_address(struct usb_device *udev, u8 *enetaddr)
++{
++	if (!is_valid_ethaddr(enetaddr)) {
++		printf("not setting invalid mac address %pM\n", enetaddr);
++		return -EINVAL;
++	}
++
++	dm_write(udev, DM_PHY_ADDR, ETH_ALEN, enetaddr);
++
++	return 0;
++}
++
++/**
++ * mii_nway_restart - restart NWay (autonegotiation) for this interface
++ * @mii: the MII interface
++ *
++ * Returns 0 on success, negative on error.
++ */
++static int mii_nway_restart(struct ueth_data *ueth)
++{
++	int bmcr;
++	int r = -EINVAL;
++
++	/* if autoneg is off, it's an error */
++	bmcr = dm9601_mdio_read(ueth, ueth->phy_id, MII_BMCR);
++
++	if (bmcr & BMCR_ANENABLE) {
++		bmcr |= BMCR_ANRESTART;
++		dm9601_mdio_write(ueth, ueth->phy_id, MII_BMCR, bmcr);
++		r = 0;
++	}
++
++	return r;
++}
++
++static void dm9601_set_multicast(struct usb_device *udev)
++{
++	u8 hashes[DM_MCAST_SIZE];
++	u8 rx_ctl = 0x31;
++
++	memset(hashes, 0x00, DM_MCAST_SIZE);
++	hashes[DM_MCAST_SIZE - 1] |= 0x80;  /* broadcast address */
++
++	dm_write(udev, DM_MCAST_ADDR, DM_MCAST_SIZE, hashes);
++	dm_write_reg(udev, DM_RX_CTRL, rx_ctl);
++}
++
++static int dm9601_bind(struct udevice *dev)
++{
++	struct eth_pdata *pdata = dev_get_platdata(dev);
++	struct dm9601_private *priv = dev_get_priv(dev);
++	struct ueth_data *ueth = &priv->ueth;
++	int ret = 0;
++	u8 mac[ETH_ALEN], id;
++
++	/* reset */
++	dm_write_reg(ueth->pusb_dev, DM_NET_CTRL, 1);
++	udelay(20);
++
++	/* read MAC */
++	if (dm_read(ueth->pusb_dev, DM_PHY_ADDR, ETH_ALEN, mac) < 0) {
++		printf("Error reading MAC address\n");
++		ret = -ENODEV;
++		goto out;
++	}
++
++	/*
++	 * Overwrite the auto-generated address only with good ones.
++	 */
++	if (is_valid_ethaddr(mac))
++		memcpy(pdata->enetaddr, mac, ETH_ALEN);
++	else
++		printf("dm9601: No valid MAC address in EEPROM, using %pM\n", pdata->enetaddr);
++
++	if (dm_read_reg(ueth->pusb_dev, DM_CHIP_ID, &id) < 0) {
++		printf("Error reading chip ID\n");
++		ret = -ENODEV;
++		goto out;
++	}
++
++	/* put dm9620 devices in dm9601 mode */
++	if (id == ID_DM9620) {
++		u8 mode;
++
++		if (dm_read_reg(ueth->pusb_dev, DM_MODE_CTRL, &mode) < 0) {
++			printf("Error reading MODE_CTRL\n");
++			ret = -ENODEV;
++			goto out;
++		}
++		dm_write_reg(ueth->pusb_dev, DM_MODE_CTRL, mode & 0x7f);
++	}
++
++	/* power up phy */
++	dm_write_reg(ueth->pusb_dev, DM_GPR_CTRL, 1);
++	dm_write_reg(ueth->pusb_dev, DM_GPR_DATA, 0);
++
++	/* receive broadcast packets */
++	dm9601_set_multicast(ueth->pusb_dev);
++
++	dm9601_mdio_write(ueth, ueth->phy_id, MII_BMCR, BMCR_RESET);
++	dm9601_mdio_write(ueth, ueth->phy_id, MII_ADVERTISE,
++			  ADVERTISE_ALL | ADVERTISE_CSMA | ADVERTISE_PAUSE_CAP);
++	mii_nway_restart(ueth);
++
++out:
++	return ret;
++}
++
++static int dm9601_eth_start(struct udevice *dev)
++{
++	struct dm9601_private *priv = dev_get_priv(dev);
++	struct ueth_data *ueth = &priv->ueth;
++	int timeout = 0;
++	int link_detected;
++
++	debug("\n----> %s()\n", __func__);
++
++#define TIMEOUT_RESOLUTION 50   /* ms */
++	do {
++		link_detected = dm9601_mdio_read(ueth, ueth->phy_id, MII_BMSR) & BMSR_LSTATUS;
++		if (!link_detected) {
++			if (timeout == 0)
++				printf("Waiting for Ethernet connection... ");
++
++			udelay(TIMEOUT_RESOLUTION * 1000);
++			timeout += TIMEOUT_RESOLUTION;
++		}
++	} while (!link_detected && timeout < PHY_CONNECT_TIMEOUT);
++
++	if (link_detected) {
++		if (timeout != 0)
++			printf("done.\n");
++
++	} else {
++		printf("unable to connect.\n");
++		return -EIO;
++	}
++	return 0;
++}
++
++static int dm9601_eth_send(struct udevice *dev, void *packet, int length)
++{
++	int err;
++	u16 packet_len;
++	int actual_len;
++	struct dm9601_private *priv = dev_get_priv(dev);
++	struct ueth_data *ueth = &priv->ueth;
++
++	ALLOC_CACHE_ALIGN_BUFFER(unsigned char, msg, PKTSIZE + DM_TX_OVERHEAD);
++
++	/* format:
++	 * b1: packet length low
++	 * b2: packet length high
++	 * b3..n: packet data
++	 */
++
++	packet_len = length;
++	cpu_to_le16s(&packet_len);
++
++	memcpy(msg, &packet_len, DM_TX_OVERHEAD);
++	memcpy(msg + DM_TX_OVERHEAD, (void *)packet, length);
++
++	err = usb_bulk_msg(ueth->pusb_dev,
++			   usb_sndbulkpipe(ueth->pusb_dev, ueth->ep_out),
++			   (void *)msg,
++			   length + sizeof(packet_len),
++			   &actual_len,
++			   USB_BULK_SEND_TIMEOUT);
++
++	return err;
++}
++
++static int dm9601_eth_recv(struct udevice *dev, int flags, uchar **packetp)
++{
++	struct dm9601_private *priv = dev_get_priv(dev);
++	struct ueth_data *ueth = &priv->ueth;
++	u8 *ptr;
++	int ret, len;
++	u8 status;
++	u32 packet_len;
++
++	len = usb_ether_get_rx_bytes(ueth, &ptr);
++	debug("%s: first try, len=%d\n", __func__, len);
++	if (!len) {
++		if (!(flags & ETH_RECV_CHECK_DEVICE))
++			return -EAGAIN;
++		ret = usb_ether_receive(ueth, RX_URB_SIZE);
++		if (ret == -EAGAIN)
++			return ret;
++
++		len = usb_ether_get_rx_bytes(ueth, &ptr);
++		debug("%s: second try, len=%d\n", __func__, len);
++	}
++
++	/* format:
++	 * b1: rx status
++	 * b2: packet length (incl crc) low
++	 * b3: packet length (incl crc) high
++	 * b4..n-4: packet data
++	 * bn-3..bn: ethernet crc
++	 */
++
++	if (unlikely(len < DM_RX_OVERHEAD)) {
++		debug("unexpected tiny rx frame\n");
++		goto err;
++	}
++
++	status = ptr[0];
++	packet_len = (ptr[1] | (ptr[2] << 8)) - 4;
++
++	if (unlikely(status & 0xbf)) {
++		debug("Rx: packet status failure: %d\n", status);
++		goto err;
++	}
++
++	if (packet_len > len - DM_RX_OVERHEAD) {
++		debug("Rx: too large packet: %d\n", packet_len);
++		goto err;
++	}
++
++	*packetp = ptr + 3;
++
++	return packet_len;
++
++err:
++	usb_ether_advance_rxbuf(ueth, -1);
++	return -EINVAL;
++}
++
++static int dm9601_free_pkt(struct udevice *dev, uchar *packet, int packet_len)
++{
++	struct dm9601_private *priv = dev_get_priv(dev);
++
++	usb_ether_advance_rxbuf(&priv->ueth, DM_RX_OVERHEAD + packet_len);
++
++	return 0;
++}
++
++static void dm9601_eth_stop(struct udevice *dev)
++{
++	debug("** %s()\n", __func__);
++}
++
++static int dm9601_write_hwaddr(struct udevice *dev)
++{
++	struct eth_pdata *pdata = dev_get_platdata(dev);
++	struct dm9601_private *priv = dev_get_priv(dev);
++	struct ueth_data *ueth = &priv->ueth;
++
++	return dm9601_set_mac_address(ueth->pusb_dev, pdata->enetaddr);
++}
++
++static int dm9601_eth_probe(struct udevice *dev)
++{
++	struct dm9601_private *priv = dev_get_priv(dev);
++	struct ueth_data *ueth = &priv->ueth;
++	int ret;
++
++	ret = usb_ether_register(dev, ueth, RX_URB_SIZE);
++	if (ret) {
++		printf("usb ether register failed! ret = %d\n", ret);
++		return ret;
++	}
++
++	if (dm9601_bind(dev)) {
++		printf("basic init failed!\n");
++		goto err;
++	}
++
++	return 0;
++err:
++	return usb_ether_deregister(ueth);
++}
++
++static const struct eth_ops dm9601_eth_ops = {
++	.start		= dm9601_eth_start,
++	.send		= dm9601_eth_send,
++	.recv		= dm9601_eth_recv,
++	.free_pkt	= dm9601_free_pkt,
++	.stop		= dm9601_eth_stop,
++	.write_hwaddr	= dm9601_write_hwaddr,
++};
++
++U_BOOT_DRIVER(dm9601_eth) = {
++	.name = "dm9601_eth",
++	.id = UCLASS_ETH,
++	.probe = dm9601_eth_probe,
++	.ops = &dm9601_eth_ops,
++	.priv_auto_alloc_size = sizeof(struct dm9601_private),
++	.platdata_auto_alloc_size = sizeof(struct eth_pdata),
++};
++
++static const struct usb_device_id dm9601_eth_id_table[] = {
++	{ USB_DEVICE(0x07aa, 0x9601) },	/* Corega FEther USB-TXC */
++	{ USB_DEVICE(0x0a46, 0x9601) },	/* Davicom USB-100 */
++	{ USB_DEVICE(0x0a46, 0x6688) },	/* ZT6688 USB NIC */
++	{ USB_DEVICE(0x0a46, 0x0268) },	/* ShanTou ST268 USB NIC */
++	{ USB_DEVICE(0x0a46, 0x8515) },	/* ADMtek ADM8515 USB NIC */
++	{ USB_DEVICE(0x0a47, 0x9601) },	/* Hirose USB-100 */
++	{ USB_DEVICE(0x0fe6, 0x8101) },	/* DM9601 USB to Fast Ethernet Adapter */
++	{ USB_DEVICE(0x0fe6, 0x9700) },	/* DM9601 USB to Fast Ethernet Adapter */
++	{ USB_DEVICE(0x0a46, 0x9000) },	/* DM9000E */
++	{ USB_DEVICE(0x0a46, 0x9620) },	/* DM9620 USB to Fast Ethernet Adapter */
++	{ USB_DEVICE(0x0a46, 0x9621) },	/* DM9621A USB to Fast Ethernet Adapter */
++	{ USB_DEVICE(0x0a46, 0x9622) },	/* DM9622 USB to Fast Ethernet Adapter */
++	{ USB_DEVICE(0x0a46, 0x0269) },	/* DM962OA USB to Fast Ethernet Adapter */
++	{ USB_DEVICE(0x0a46, 0x1269) },	/* DM9621A USB to Fast Ethernet Adapter */
++	{},
++};
++
++U_BOOT_USB_DEVICE(dm9601_eth, dm9601_eth_id_table);
+-- 
+2.17.1
+
