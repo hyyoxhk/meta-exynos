@@ -11,7 +11,8 @@ SRC_URI[sha256sum] = "9e05f36f2e6dc8ed30a2329e10f6296eb28b7e9e34e7b2f6e6a5d19fa9
 
 SRC_URI += " \
     file://0001-Add-support-for-Davicom-DM96xx-based-USB-10-100-ethe.patch \
-    file://0002-ARM-Samsung-Add-support-for-iTop-4412-based-on-Samsu.patch \
+    file://0002-dts-add-device-tree-for-iTop-4412-board.patch \
+    file://0003-ARM-Samsung-Add-support-for-iTop-4412-based-on-Samsu.patch \
 "
 
 S = "${WORKDIR}/u-boot-${PV}"
