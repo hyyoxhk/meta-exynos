@@ -9,8 +9,7 @@ SRC_URI = "https://cdn.kernel.org/pub/linux/kernel/v5.x/linux-${PV}.tar.xz"
 SRC_URI[md5sum] = "ffdb73ce9e792e141baa72628dd21230"
 SRC_URI[sha256sum] = "93293032aa13c3998eeb2afd910f11c0f2e8a76ffec46f74ce3fcfac53ed60f1"
 
-# TODO patch
-#SRC_URI += ""
+SRC_URI += "file://0001-Add-support-for-iTop-4412-based-on-Samsung-Exynos441.patch"
 
 B = "${WORKDIR}/build"
 S = "${WORKDIR}/linux-${PV}"
