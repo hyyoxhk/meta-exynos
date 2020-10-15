@@ -1,0 +1,40 @@
+From 66149b36ed9ec4c96ac0d94c11a5652f925021af Mon Sep 17 00:00:00 2001
+From: hyyoxhk <hyyoxhk@163.com>
+Date: Thu, 15 Oct 2020 11:12:12 +0800
+Subject: [PATCH 4/4] Add support for iTop-4412 SCP 2G
+
+Signed-off-by: hyyoxhk <hyyoxhk@163.com>
+---
+ arch/arm/dts/exynos4412-itop-elite.dts | 2 +-
+ include/configs/itop.h                 | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/arch/arm/dts/exynos4412-itop-elite.dts b/arch/arm/dts/exynos4412-itop-elite.dts
+index 330444b696..4fee78cc9c 100644
+--- a/arch/arm/dts/exynos4412-itop-elite.dts
++++ b/arch/arm/dts/exynos4412-itop-elite.dts
+@@ -27,7 +27,7 @@
+ 
+ 	memory@40000000 {
+ 		device_type = "memory";
+-		reg = <0x40000000 0x40000000>;
++		reg = <0x40000000 0x80000000>;
+ 	};
+ 
+ 	serial@13820000 {
+diff --git a/include/configs/itop.h b/include/configs/itop.h
+index 98d5672142..8427cdebbb 100644
+--- a/include/configs/itop.h
++++ b/include/configs/itop.h
+@@ -19,7 +19,7 @@
+ #define CONFIG_MACH_TYPE	5115
+ 
+ #define CONFIG_SYS_SDRAM_BASE	0x40000000
+-#define SDRAM_BANK_SIZE		(256 << 20)	/* 256 MB */
++#define SDRAM_BANK_SIZE		(512 << 20)	/* 512 MB */
+ #define PHYS_SDRAM_1		CONFIG_SYS_SDRAM_BASE
+ /* Reserve the last 1 MiB for the secure firmware */
+ #define CONFIG_SYS_MEM_TOP_HIDE		BIT(20)
+-- 
+2.17.1
+

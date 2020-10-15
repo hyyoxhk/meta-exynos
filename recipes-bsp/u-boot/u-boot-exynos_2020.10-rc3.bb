@@ -13,6 +13,7 @@ SRC_URI += " \
     file://0001-Add-support-for-Davicom-DM96xx-based-USB-10-100-ethe.patch \
     file://0002-dts-add-device-tree-for-iTop-4412-board.patch \
     file://0003-ARM-Samsung-Add-support-for-iTop-4412-based-on-Samsu.patch \
+    file://0004-Add-support-for-iTop-4412-SCP-2G.patch \
 "
 
 S = "${WORKDIR}/u-boot-${PV}"

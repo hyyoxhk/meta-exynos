@@ -1,0 +1,26 @@
+From 80c1a28b9de68ecf23a9c103639b74b8595e8f81 Mon Sep 17 00:00:00 2001
+From: hyyoxhk <hyyoxhk@163.com>
+Date: Thu, 15 Oct 2020 11:28:40 +0800
+Subject: [PATCH 2/2] Add support for iTop-4412 SCP 2G
+
+Signed-off-by: hyyoxhk <hyyoxhk@163.com>
+---
+ arch/arm/boot/dts/exynos4412-itop-scp-core.dtsi | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/arch/arm/boot/dts/exynos4412-itop-scp-core.dtsi b/arch/arm/boot/dts/exynos4412-itop-scp-core.dtsi
+index d1b73643c..3c94c6d46 100644
+--- a/arch/arm/boot/dts/exynos4412-itop-scp-core.dtsi
++++ b/arch/arm/boot/dts/exynos4412-itop-scp-core.dtsi
+@@ -20,7 +20,7 @@
+ / {
+ 	memory@40000000 {
+ 		device_type = "memory";
+-		reg = <0x40000000 0x40000000>;
++		reg = <0x40000000 0x80000000>;
+ 	};
+ /*
+ 	firmware@203f000 {
+-- 
+2.17.1
+
