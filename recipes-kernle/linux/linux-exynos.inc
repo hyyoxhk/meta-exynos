@@ -2,7 +2,6 @@ inherit kernel
 
 # Do not deploy kernel module with specfic tarball
 MODULE_TARBALL_DEPLOY = "0"
-do_deploy[sstate-outputdirs] = "${DEPLOY_DIR_IMAGE}/kernel"
 
 KERNEL_EXTRA_ARGS += "LOADADDR=${KERNEL_LOADADDR}"
 
