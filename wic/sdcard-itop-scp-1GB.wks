@@ -1,9 +1,15 @@
 # short-description: Create SD card image with a boot partition (1GB)
 # long-description: Creates a partitioned SD card image (1GB)
 #
-
+#  ------- --------- -------------- -------------
+# |   fsbl | u-boot  |     bootfs   |    rootfs |
+#  ------- --------- -------------- -------------
+# ^       ^         ^              ^             ^
+# |       |         |              |             |
+# 0    25kB       2MB           64MB         768M
+#
 part ssbl  --source rawcopy --fstype=ext4 --fsoptions "noauto" --sourceparams="file=u-boot-exynos.bin" --ondisk mmcblk --fixed-size 2048K --align 25
-part bootfs --source rawcopy --sourceparams="file=part-image-bootfs-exynos.ext4" --ondisk mmcblk --fstype=ext4 --label bootfs --active --fixed-size 64M
+part /boot --source bootimg-partition --sourceparams="loader=u-boot" --ondisk mmcblk --fstype=vfat --label bootfs --active --fixed-size 64M
 part / --source rootfs --ondisk mmcblk --fstype=ext4 --label rootfs --fixed-size 768M
 
-bootloader --ptable msdos
+bootloader --ptable msdos --configfile="${DEPLOY_DIR_IMAGE}/extlinux.conf"
