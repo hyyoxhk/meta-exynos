@@ -9,7 +9,7 @@
 # 0    25kB       2MB           64MB         768M
 #
 part ssbl  --source rawcopy --fstype=ext4 --fsoptions "noauto" --sourceparams="file=u-boot-exynos.bin" --ondisk mmcblk --fixed-size 2048K --align 25
-part /boot --source bootimg-partition --sourceparams="loader=u-boot" --ondisk mmcblk --fstype=vfat --label bootfs --active --fixed-size 64M
-part / --source rootfs --ondisk mmcblk --fstype=ext4 --label rootfs --fixed-size 768M
+part /boot --source bootimg-partition --sourceparams="loader=u-boot" --ondisk mmcblk0 --fstype=ext4 --mkfs-extraopts="-i 4096 -L bootfs -O ^metadata_csum,^dir_index" --label bootfs --active --fixed-size 64M
+part / --source rootfs --ondisk mmcblk0 --fstype=ext4 --label rootfs --fixed-size 768M
 
 bootloader --ptable msdos --configfile="${DEPLOY_DIR_IMAGE}/extlinux.conf"
