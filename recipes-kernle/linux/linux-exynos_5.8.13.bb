@@ -15,8 +15,8 @@ B = "${WORKDIR}/build"
 S = "${WORKDIR}/linux-${PV}"
 
 BBCLASSEXTEND = "devupstream:target"
-SRC_URI_class-devupstream = "git://github.com/torvalds/linux.git"
-SRCREV_class-devupstream = "${AUTOREV}"
+SRC_URI:class-devupstream = "git://github.com/torvalds/linux.git"
+SRCREV:class-devupstream = "${AUTOREV}"
 
 SOURCE_SELECTION ?= "tarball"
 

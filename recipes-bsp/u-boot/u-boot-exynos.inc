@@ -14,7 +14,7 @@ do_unpack[cleandirs] += " ${S} ${STAGING_UBOOT_DIR}"
 do_clean[cleandirs] += " ${S} ${STAGING_UBOOT_DIR}"
 
 # this is copying form kernel.bbclass
-base_do_unpack_append () {
+base_do_unpack:append () {
     # Copy/Paste from kernel class with adaptation to UBOOT var
     s = d.getVar("S")
     if s[-1] == '/':
@@ -33,10 +33,10 @@ base_do_unpack_append () {
             os.symlink(ubootsrc, s)
 }
 
-do_compile_append() {
+do_compile:append() {
     oe_runmake -C ${S} O=${B} DEVICE_TREE=${UBOOT_DEVICETREE}
 }
 
-#INSANE_SKIP_${PN} += "ldflags"
+#INSANE_SKIP:${PN} += "ldflags"
 
-#INSANE_SKIP_${PN} += "textrel"
+#INSANE_SKIP:${PN} += "textrel"

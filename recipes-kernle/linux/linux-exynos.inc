@@ -5,13 +5,13 @@ MODULE_TARBALL_DEPLOY = "0"
 
 KERNEL_EXTRA_ARGS += "LOADADDR=${KERNEL_LOADADDR}"
 
-do_configure_prepend() {
+do_configure:prepend() {
     oe_runmake -C ${S} O=${B} ${KBUILD_DEFCONFIG}
 }
 
 BBCLASSEXTEND = "devupstream:target"
-SRC_URI_class-devupstream = "git://github.com/torvalds/linux.git"
-SRCREV_class-devupstream = "${AUTOREV}"
+SRC_URI:class-devupstream = "git://github.com/torvalds/linux.git"
+SRCREV:class-devupstream = "${AUTOREV}"
 
 SOURCE_SELECTION ?= "tarball"
 
