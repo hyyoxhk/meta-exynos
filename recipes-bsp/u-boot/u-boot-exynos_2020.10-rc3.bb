@@ -19,7 +19,7 @@ S = "${WORKDIR}/u-boot-${PV}"
 B = "${WORKDIR}/build"
 
 BBCLASSEXTEND = "devupstream:target"
-SRC_URI:class-devupstream = "git://github.com/hyyoxhk/u-boot.git"
+SRC_URI:class-devupstream = "git://github.com/hyyoxhk/u-boot.git;protocol=https;branch=v2020.10-rc3-itop"
 SRCREV:class-devupstream = "${AUTOREV}"
 
 SOURCE_SELECTION ?= "tarball"
