@@ -1,20 +1,20 @@
-From 525042ea1a1700380d5bdf92d60d04d8c8940bb7 Mon Sep 17 00:00:00 2001
-From: hyyoxhk <hyyoxhk@163.com>
-Date: Sun, 4 Oct 2020 18:00:05 +0800
-Subject: [PATCH 3/3] ARM: Samsung: Add support for iTop-4412 based on Samsung
+From 6f8e19182c6dc0f9e5828f90659a187698e4f800 Mon Sep 17 00:00:00 2001
+From: He Yong <hyyoxhk@163.com>
+Date: Mon, 24 Apr 2023 10:04:15 +0800
+Subject: [PATCH 5/5] ARM: Samsung: Add support for iTop-4412 based on Samsung
  Exynos4412
 
-Signed-off-by: hyyoxhk <hyyoxhk@163.com>
+Signed-off-by: He Yong <hyyoxhk@163.com>
 ---
  arch/arm/mach-exynos/Kconfig   |   4 +
  board/samsung/itop/Kconfig     |  12 ++
  board/samsung/itop/MAINTAINERS |   6 +
  board/samsung/itop/Makefile    |   6 +
- board/samsung/itop/itop.c      | 284 +++++++++++++++++++++++++++++++++
- board/samsung/itop/setup.h     | 274 +++++++++++++++++++++++++++++++
- configs/itop_defconfig         |  93 +++++++++++
- include/configs/itop.h         | 177 ++++++++++++++++++++
- 8 files changed, 856 insertions(+)
+ board/samsung/itop/itop.c      | 333 +++++++++++++++++++++++++++++++++
+ board/samsung/itop/setup.h     | 274 +++++++++++++++++++++++++++
+ configs/itop_defconfig         |  94 ++++++++++
+ include/configs/itop.h         | 173 +++++++++++++++++
+ 8 files changed, 902 insertions(+)
  create mode 100644 board/samsung/itop/Kconfig
  create mode 100644 board/samsung/itop/MAINTAINERS
  create mode 100644 board/samsung/itop/Makefile
@@ -24,7 +24,7 @@ Signed-off-by: hyyoxhk <hyyoxhk@163.com>
  create mode 100644 include/configs/itop.h
 
 diff --git a/arch/arm/mach-exynos/Kconfig b/arch/arm/mach-exynos/Kconfig
-index 14347e7c7d..a2e1a4a38b 100644
+index 7f3aee57..fccff512 100644
 --- a/arch/arm/mach-exynos/Kconfig
 +++ b/arch/arm/mach-exynos/Kconfig
 @@ -73,6 +73,9 @@ config TARGET_TRATS2
@@ -37,7 +37,7 @@ index 14347e7c7d..a2e1a4a38b 100644
  endchoice
  endif
  
-@@ -163,6 +166,7 @@ source "board/samsung/universal_c210/Kconfig"
+@@ -190,6 +193,7 @@ source "board/samsung/universal_c210/Kconfig"
  source "board/samsung/origen/Kconfig"
  source "board/samsung/trats2/Kconfig"
  source "board/samsung/odroid/Kconfig"
@@ -47,7 +47,7 @@ index 14347e7c7d..a2e1a4a38b 100644
  source "board/samsung/smdk5420/Kconfig"
 diff --git a/board/samsung/itop/Kconfig b/board/samsung/itop/Kconfig
 new file mode 100644
-index 0000000000..b58ad3fd66
+index 00000000..b58ad3fd
 --- /dev/null
 +++ b/board/samsung/itop/Kconfig
 @@ -0,0 +1,12 @@
@@ -65,7 +65,7 @@ index 0000000000..b58ad3fd66
 +endif
 diff --git a/board/samsung/itop/MAINTAINERS b/board/samsung/itop/MAINTAINERS
 new file mode 100644
-index 0000000000..02356b4f71
+index 00000000..02356b4f
 --- /dev/null
 +++ b/board/samsung/itop/MAINTAINERS
 @@ -0,0 +1,6 @@
@@ -77,7 +77,7 @@ index 0000000000..02356b4f71
 +F:	configs/itop_defconfig
 diff --git a/board/samsung/itop/Makefile b/board/samsung/itop/Makefile
 new file mode 100644
-index 0000000000..509a7cd146
+index 00000000..509a7cd1
 --- /dev/null
 +++ b/board/samsung/itop/Makefile
 @@ -0,0 +1,6 @@
@@ -89,10 +89,10 @@ index 0000000000..509a7cd146
 +obj-y	:= itop.o
 diff --git a/board/samsung/itop/itop.c b/board/samsung/itop/itop.c
 new file mode 100644
-index 0000000000..b19d1a9e71
+index 00000000..40878ea4
 --- /dev/null
 +++ b/board/samsung/itop/itop.c
-@@ -0,0 +1,284 @@
+@@ -0,0 +1,333 @@
 +// SPDX-License-Identifier: GPL-2.0+
 +/*
 + * Copyright (C) 2020 hey <hyyoxhk@163.com>
@@ -119,12 +119,9 @@ index 0000000000..b19d1a9e71
 +#include <mmc.h>
 +#include <usb.h>
 +#include <usb/dwc2_udc.h>
-+#include <samsung/misc.h>
 +#include "setup.h"
 +
 +DECLARE_GLOBAL_DATA_PTR;
-+
-+#ifdef CONFIG_BOARD_TYPES
 +
 +/* iTop-4412 board types */
 +enum {
@@ -133,15 +130,16 @@ index 0000000000..b19d1a9e71
 +	ITOP_TYPE_REV,
 +};
 +
++#ifdef CONFIG_BOARD_TYPES
 +/* HW revision with core board */
-+static unsigned int board_rev = 1;
++static u32 board_rev = 1;
 +
 +u32 get_board_rev(void)
 +{
 +	return board_rev;
 +}
 +
-+u32 get_cpu_type(void)
++static u32 get_cpu_type(void)
 +{
 +	u32 pro_id = readl(EXYNOS4_PRO_ID);
 +	u32 package = pro_id >> 8;
@@ -180,6 +178,57 @@ index 0000000000..b19d1a9e71
 +}
 +#endif
 +
++#ifdef CONFIG_ENV_VARS_UBOOT_RUNTIME_CONFIG
++static void setup_board_info(void)
++{
++	const char *fdt_compat;
++	int fdt_compat_len;
++	char info[64];
++
++	snprintf(info, ARRAY_SIZE(info), "%u.%u", (s5p_cpu_rev & 0xf0) >> 4, s5p_cpu_rev & 0xf);
++	env_set("soc_rev", info);
++
++	snprintf(info, ARRAY_SIZE(info), "%x", s5p_cpu_id);
++	env_set("soc_id", info);
++
++	snprintf(info, ARRAY_SIZE(info), "%x", get_board_rev());
++	env_set("board_rev", info);
++
++	fdt_compat = fdt_getprop(gd->fdt_blob, 0, "compatible", &fdt_compat_len);
++	if (fdt_compat && fdt_compat_len) {
++		env_set("board_name", fdt_compat + 7);
++
++		snprintf(info, ARRAY_SIZE(info), "%s%x-%s.dtb", CONFIG_SYS_SOC,
++			s5p_cpu_id, fdt_compat + 7);
++		env_set("fdtfile", info);
++	}
++}
++
++static void setup_boot_mode(void)
++{
++	u32 bootmode = get_boot_mode();
++
++	switch (bootmode) {
++	case BOOT_MODE_SD:
++		env_set("boot_device", "mmc");
++		env_set("boot_instance", "0");
++	case BOOT_MODE_EMMC_SD:
++		env_set("boot_device", "mmc");
++		env_set("boot_instance", "1");
++		break;
++	default:
++		pr_debug("unexpected boot mode = %x\n", bootmode);
++		break;
++	}
++}
++
++void set_board_info(void)
++{
++	setup_board_info();
++	setup_boot_mode();
++}
++#endif
++
 +#ifdef CONFIG_SET_DFU_ALT_INFO
 +char *get_dfu_alt_system(char *interface, char *devstr)
 +{
@@ -208,53 +257,7 @@ index 0000000000..b19d1a9e71
 +}
 +#endif
 +
-+const char *env_ext4_get_dev_part(void)
-+{
-+	static char *const dev_part[] = {"0:auto", "1:auto"};
-+	u32 bootmode = get_boot_mode();
-+
-+	if (bootmode == BOOT_MODE_SD) {
-+		return dev_part[0];
-+	}
-+
-+	return dev_part[1];
-+}
-+
-+enum env_location env_get_location(enum env_operation op, int prio)
-+{
-+	u32 bootmode = get_boot_mode();
-+
-+	if (prio)
-+		return ENVL_UNKNOWN;
-+
-+	switch (bootmode) {
-+	case BOOT_MODE_SD:
-+	case BOOT_MODE_EMMC_SD:
-+		if (CONFIG_IS_ENABLED(ENV_IS_IN_MMC))
-+			return ENVL_MMC;
-+		else if (CONFIG_IS_ENABLED(ENV_IS_IN_EXT4))
-+			return ENVL_EXT4;
-+		else
-+			return ENVL_NOWHERE;
-+	default:
-+		return ENVL_NOWHERE;
-+	}
-+}
-+
-+const char *env_ext4_get_intf(void)
-+{
-+	u32 bootmode = get_boot_mode();
-+
-+	switch (bootmode) {
-+	case BOOT_MODE_SD:
-+	case BOOT_MODE_EMMC_SD:
-+		return "mmc";
-+	default:
-+		return "";
-+	}
-+}
-+
-+void board_clock_init(void)
++static void board_clock_init(void)
 +{
 +	struct exynos4x12_clock *clk =
 +			(struct exynos4x12_clock *)samsung_get_base_clock();
@@ -310,6 +313,13 @@ index 0000000000..b19d1a9e71
 +	writel(CLK_SRC_FSYS_VAL, &clk->src_fsys);
 +}
 +
++int exynos_early_init_f(void)
++{
++	board_clock_init();
++
++	return 0;
++}
++
 +static void board_gpio_init(void)
 +{
 +	/* eMMC Reset Pin */
@@ -344,13 +354,6 @@ index 0000000000..b19d1a9e71
 +#endif
 +}
 +
-+int exynos_early_init_f(void)
-+{
-+	board_clock_init();
-+
-+	return 0;
-+}
-+
 +int exynos_init(void)
 +{
 +	board_gpio_init();
@@ -377,9 +380,55 @@ index 0000000000..b19d1a9e71
 +
 +	return 0;
 +}
++
++const char *env_ext4_get_dev_part(void)
++{
++	static char *const dev_part[] = {"0:auto", "1:auto"};
++	u32 bootmode = get_boot_mode();
++
++	if (bootmode == BOOT_MODE_SD) {
++		return dev_part[0];
++	}
++
++	return dev_part[1];
++}
++
++enum env_location env_get_location(enum env_operation op, int prio)
++{
++	u32 bootmode = get_boot_mode();
++
++	if (prio)
++		return ENVL_UNKNOWN;
++
++	switch (bootmode) {
++	case BOOT_MODE_SD:
++	case BOOT_MODE_EMMC_SD:
++		if (CONFIG_IS_ENABLED(ENV_IS_IN_MMC))
++			return ENVL_MMC;
++		else if (CONFIG_IS_ENABLED(ENV_IS_IN_EXT4))
++			return ENVL_EXT4;
++		else
++			return ENVL_NOWHERE;
++	default:
++		return ENVL_NOWHERE;
++	}
++}
++
++const char *env_fat_get_intf(void)
++{
++	u32 bootmode = get_boot_mode();
++
++	switch (bootmode) {
++	case BOOT_MODE_SD:
++	case BOOT_MODE_EMMC_SD:
++		return "mmc";
++	default:
++		return "";
++	}
++}
 diff --git a/board/samsung/itop/setup.h b/board/samsung/itop/setup.h
 new file mode 100644
-index 0000000000..4a826e7049
+index 00000000..dc4f3f74
 --- /dev/null
 +++ b/board/samsung/itop/setup.h
 @@ -0,0 +1,274 @@
@@ -454,7 +503,7 @@ index 0000000000..4a826e7049
 +#define ONENAND_RATIO		0x0
 +#define ACLK_266_GPS_RATIO	0x2
 +#define	ACLK_400_MCUISP_RATIO	0x1
-+#define CLK_DIV_TOP_VAL		( (ACLK_400_MCUISP_RATIO << 24) \
++#define CLK_DIV_TOP_VAL		((ACLK_400_MCUISP_RATIO << 24) \
 +				| (ACLK_266_GPS_RATIO << 20) \
 +				| (ONENAND_RATIO << 16)	\
 +				| (ACLK_133_RATIO << 12)\
@@ -659,10 +708,10 @@ index 0000000000..4a826e7049
 +#endif
 diff --git a/configs/itop_defconfig b/configs/itop_defconfig
 new file mode 100644
-index 0000000000..b68d9a423e
+index 00000000..e1575080
 --- /dev/null
 +++ b/configs/itop_defconfig
-@@ -0,0 +1,93 @@
+@@ -0,0 +1,94 @@
 +CONFIG_ARM=y
 +CONFIG_ARCH_CPU_INIT=y
 +CONFIG_ARCH_EXYNOS=y
@@ -674,6 +723,7 @@ index 0000000000..b68d9a423e
 +CONFIG_DEFAULT_DEVICE_TREE="exynos4412-itop-elite"
 +CONFIG_DISTRO_DEFAULTS=y
 +# CONFIG_SYS_MALLOC_CLEAR_ON_INIT is not set
++CONFIG_SYS_LOAD_ADDR=0x43e00000
 +CONFIG_FIT=y
 +CONFIG_FIT_VERBOSE=y
 +# CONFIG_USE_BOOTCOMMAND is not set
@@ -708,11 +758,11 @@ index 0000000000..b68d9a423e
 +CONFIG_CMD_EXT4_WRITE=y
 +CONFIG_PARTITION_TYPE_GUID=y
 +CONFIG_OF_CONTROL=y
++CONFIG_ENV_OVERWRITE=y
 +CONFIG_ENV_IS_NOWHERE=y
-+CONFIG_ENV_IS_IN_EXT4=y
++CONFIG_ENV_IS_IN_FAT=y
 +# CONFIG_ENV_IS_IN_MMC is not set
-+CONFIG_ENV_EXT4_INTERFACE="mmc"
-+CONFIG_ENV_EXT4_DEVICE_AND_PART="0:auto"
++CONFIG_ENV_FAT_DEVICE_AND_PART="0:auto"
 +CONFIG_SYS_RELOC_GD_ENV_ADDR=y
 +CONFIG_ENV_VARS_UBOOT_RUNTIME_CONFIG=y
 +CONFIG_NET_RANDOM_ETHADDR=y
@@ -756,13 +806,12 @@ index 0000000000..b68d9a423e
 +CONFIG_DISPLAY=y
 +CONFIG_VIDEO_BRIDGE=y
 +CONFIG_LIB_HW_RAND=y
-+CONFIG_ERRNO_STR=y
 diff --git a/include/configs/itop.h b/include/configs/itop.h
 new file mode 100644
-index 0000000000..98d5672142
+index 00000000..bbc55e85
 --- /dev/null
 +++ b/include/configs/itop.h
-@@ -0,0 +1,177 @@
+@@ -0,0 +1,173 @@
 +/* SPDX-License-Identifier: GPL-2.0+ */
 +/*
 + * Copyright (C) 2020 hey <hyyoxhk@163.com>
@@ -775,7 +824,7 @@ index 0000000000..98d5672142
 +
 +#include <configs/exynos4-common.h>
 +
-+#define CONFIG_SYS_L2CACHE_OFF
++/*#define CONFIG_SYS_L2CACHE_OFF*/
 +#ifndef CONFIG_SYS_L2CACHE_OFF
 +#define CONFIG_SYS_L2_PL310
 +#define CONFIG_SYS_PL310_BASE	0x10502000
@@ -790,25 +839,23 @@ index 0000000000..98d5672142
 +#define CONFIG_SYS_MEM_TOP_HIDE		BIT(20)
 +#define CONFIG_TZSW_RESERVED_DRAM_SIZE	CONFIG_SYS_MEM_TOP_HIDE
 +
-+/* memtest works on */
-+#define CONFIG_SYS_LOAD_ADDR		(CONFIG_SYS_SDRAM_BASE + 0x3E00000)
-+
 +#include <linux/sizes.h>
 +
-+/* select serial console configuration */
++/*
++ * For booting Linux, use the first 512 MB of memory, since this is
++ * the maximum mapped by the Linux kernel during initialization.
++ */
++#define CONFIG_SYS_BOOTMAPSZ		SZ_512M
 +
-+/* Console configuration */
++/* Extend size of kernel image for uncompression */
++#define CONFIG_SYS_BOOTM_LEN		SZ_32M
 +
 +#define CONFIG_BOOTCOMMAND		"run distro_bootcmd ; run autoboot"
-+#define CONFIG_DEFAULT_CONSOLE		"console=ttySAC1,115200n8\0"
 +
 +#define CONFIG_SYS_INIT_SP_ADDR	(CONFIG_SYS_LOAD_ADDR \
 +					- GENERATED_GBL_DATA_SIZE)
 +
 +#define CONFIG_SYS_MONITOR_BASE	0x00000000
-+
-+#define CONFIG_SYS_MMC_ENV_DEV		CONFIG_MMC_DEFAULT_DEV
-+#define CONFIG_ENV_OVERWRITE
 +
 +/* Partitions name */
 +#define PARTS_BOOT		"boot"
@@ -911,7 +958,7 @@ index 0000000000..98d5672142
 +		"elif test -e mmc ${mmcbootdev} uImage; then; " \
 +			"run boot_uimg;" \
 +		"fi;\0" \
-+	"console=" CONFIG_DEFAULT_CONSOLE \
++	"console=console=ttySAC1,115200n8\0" \
 +	"mmcbootdev=0\0" \
 +	"mmcbootpart=1\0" \
 +	"mmcrootdev=0\0" \
@@ -935,11 +982,9 @@ index 0000000000..98d5672142
 +/* USB */
 +#define CONFIG_USB_EHCI_EXYNOS
 +
-+#define CONFIG_MISC_COMMON
-+
 +#define CONFIG_EXYNOS_FB
 +
 +#endif	/* __CONFIG_H */
 -- 
-2.17.1
+2.34.1
 

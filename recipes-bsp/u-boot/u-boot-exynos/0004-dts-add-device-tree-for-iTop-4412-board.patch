@@ -1,17 +1,17 @@
-From 5c4c0beb3554ff19ca9abfe2fa753213adec2c01 Mon Sep 17 00:00:00 2001
-From: hyyoxhk <hyyoxhk@163.com>
-Date: Sun, 4 Oct 2020 17:56:57 +0800
-Subject: [PATCH 2/3] dts: add device tree for iTop-4412 board
+From d39b5fe91600bbfb5776a9cdaaf5774dcbb6d30f Mon Sep 17 00:00:00 2001
+From: He Yong <hyyoxhk@163.com>
+Date: Mon, 24 Apr 2023 10:02:08 +0800
+Subject: [PATCH 4/5] dts: add device tree for iTop-4412 board
 
-Signed-off-by: hyyoxhk <hyyoxhk@163.com>
+Signed-off-by: He Yong <hyyoxhk@163.com>
 ---
  arch/arm/dts/Makefile                  |   3 +-
- arch/arm/dts/exynos4412-itop-elite.dts | 407 +++++++++++++++++++++++++
- 2 files changed, 409 insertions(+), 1 deletion(-)
+ arch/arm/dts/exynos4412-itop-elite.dts | 409 +++++++++++++++++++++++++
+ 2 files changed, 411 insertions(+), 1 deletion(-)
  create mode 100644 arch/arm/dts/exynos4412-itop-elite.dts
 
 diff --git a/arch/arm/dts/Makefile b/arch/arm/dts/Makefile
-index f8f529435b..7ac8e80462 100644
+index b3e2a9c9..78858f93 100644
 --- a/arch/arm/dts/Makefile
 +++ b/arch/arm/dts/Makefile
 @@ -12,7 +12,8 @@ dtb-$(CONFIG_EXYNOS4) += exynos4210-origen.dtb \
@@ -26,10 +26,10 @@ index f8f529435b..7ac8e80462 100644
  dtb-$(CONFIG_TARGET_HIKEY960) += hi3660-hikey960.dtb
 diff --git a/arch/arm/dts/exynos4412-itop-elite.dts b/arch/arm/dts/exynos4412-itop-elite.dts
 new file mode 100644
-index 0000000000..330444b696
+index 00000000..55e897dd
 --- /dev/null
 +++ b/arch/arm/dts/exynos4412-itop-elite.dts
-@@ -0,0 +1,407 @@
+@@ -0,0 +1,409 @@
 +// SPDX-License-Identifier: GPL-2.0+
 +/*
 + * TOPEET's Exynos4412 based itop board device tree source
@@ -44,7 +44,7 @@ index 0000000000..330444b696
 +
 +/ {
 +	model = "TOPEET iTop 4412 Elite board based on Exynos4412";
-+	compatible = "topeet,itop4412-elite", "samsung,exynos4412";
++	compatible = "topeet,itop-elite", "samsung,exynos4412";
 +
 +	aliases {
 +		serial0 = "/serial@13820000";
@@ -424,6 +424,8 @@ index 0000000000..330444b696
 +&sdhci2 {
 +	samsung,bus-width = <4>;
 +	samsung,timing = <1 2 3>;
++	cd-gpios = <&gpx0 7 GPIO_ACTIVE_HIGH>;
++	cd-inverted;
 +	status = "okay";
 +};
 +
@@ -438,5 +440,5 @@ index 0000000000..330444b696
 +	status = "okay";
 +};
 -- 
-2.17.1
+2.34.1
 
