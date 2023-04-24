@@ -6,8 +6,8 @@ LIC_FILES_CHKSUM = "file://COPYING;md5=6bc538ed5bd9a7fc9398086aedcd7e46"
 include linux-exynos.inc
 
 SRC_URI = "https://cdn.kernel.org/pub/linux/kernel/v5.x/linux-${PV}.tar.xz"
-SRC_URI[md5sum] = "83f75973e3d83a5f7b1c2e6c05abb9e4"
-SRC_URI[sha256sum] = "f25936177edd183dd0645dce1d81873bcfc0bab1ff1586df75d95cd12723320d"
+SRC_URI[md5sum] = "79f1309666d782d20f6e183e91468200"
+SRC_URI[sha256sum] = "8beb69ada46f1cbca2f4cf901ec078846035c1cd925d9471422f65aff74243ba"
 
 SRC_URI += "file://0001-Add-support-for-iTop-4412-based-on-Samsung-Exynos441.patch"
 

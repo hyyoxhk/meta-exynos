@@ -1,35 +1,21 @@
-From 9833329d2222d59ba7db38c196098bebca6b6fcd Mon Sep 17 00:00:00 2001
-From: hyyoxhk <hyyoxhk@163.com>
-Date: Tue, 6 Oct 2020 20:47:04 +0800
+From 554556c1265ee72f052286063c5040efa19c7bae Mon Sep 17 00:00:00 2001
+From: He Yong <hyyoxhk@163.com>
+Date: Mon, 24 Apr 2023 16:03:34 +0800
 Subject: [PATCH] Add support for iTop-4412 based on Samsung Exynos4412
 
-Signed-off-by: hyyoxhk <hyyoxhk@163.com>
+Signed-off-by: He Yong <hyyoxhk@163.com>
 ---
- arch/arm/boot/dts/exynos4.dtsi                |   2 +-
- arch/arm/boot/dts/exynos4412-itop-elite.dts   |   2 +-
- .../boot/dts/exynos4412-itop-scp-core.dtsi    |  67 ++--
- arch/arm/configs/itop_defconfig               | 359 ++++++++++++++++++
- 4 files changed, 396 insertions(+), 34 deletions(-)
+ arch/arm/boot/dts/exynos4412-itop-elite.dts   |  56 ++-
+ .../boot/dts/exynos4412-itop-scp-core.dtsi    |  30 +-
+ arch/arm/configs/itop_defconfig               | 372 ++++++++++++++++++
+ 3 files changed, 440 insertions(+), 18 deletions(-)
  create mode 100644 arch/arm/configs/itop_defconfig
 
-diff --git a/arch/arm/boot/dts/exynos4.dtsi b/arch/arm/boot/dts/exynos4.dtsi
-index d2779a790..2f26b72d5 100644
---- a/arch/arm/boot/dts/exynos4.dtsi
-+++ b/arch/arm/boot/dts/exynos4.dtsi
-@@ -474,7 +474,7 @@
- 			interrupts = <GIC_SPI 54 IRQ_TYPE_LEVEL_HIGH>;
- 			clocks = <&clock CLK_UART2>, <&clock CLK_SCLK_UART2>;
- 			clock-names = "uart", "clk_uart_baud0";
--			dmas = <&pdma0 17>, <&pdma0 18>;
-+			dmas = <&pdma0 17>;//, <&pdma0 18>;
- 			dma-names = "rx", "tx";
- 			status = "disabled";
- 		};
 diff --git a/arch/arm/boot/dts/exynos4412-itop-elite.dts b/arch/arm/boot/dts/exynos4412-itop-elite.dts
-index f6d0a5f5d..3df255344 100644
+index 47431307c..5ea80f9c0 100644
 --- a/arch/arm/boot/dts/exynos4412-itop-elite.dts
 +++ b/arch/arm/boot/dts/exynos4412-itop-elite.dts
-@@ -29,7 +29,7 @@
+@@ -29,7 +29,7 @@ leds {
  
  		led2 {
  			label = "red:system";
@@ -38,94 +24,83 @@ index f6d0a5f5d..3df255344 100644
  			default-state = "off";
  			linux,default-trigger = "heartbeat";
  		};
+@@ -115,6 +115,19 @@ link0_codec: simple-audio-card,codec {
+ 	beep {
+ 		compatible = "pwm-beeper";
+ 		pwms = <&pwm 0 4000000 PWM_POLARITY_INVERTED>;
++		pinctrl-0 = <&pwm0_out>;
++		pinctrl-names = "default";
++	};
++
++	backlight: backlight {
++		compatible = "pwm-backlight";
++		pwms = <&pwm 1 1000000 0>;
++		brightness-levels = <0 100 500 1000 1500 2000 2500 2800>;
++		default-brightness-level = <7>;
++		enable-gpios = <&gpl0 4 GPIO_ACTIVE_HIGH>;
++		power-supply = <&ldo3_reg>;
++		pinctrl-0 = <&pwm1_out>;
++		pinctrl-names = "default";
+ 	};
+ };
+ 
+@@ -202,8 +215,6 @@ ether-reset {
+ 
+ &pwm {
+ 	status = "okay";
+-	pinctrl-0 = <&pwm0_out>;
+-	pinctrl-names = "default";
+ 	samsung,pwm-outputs = <0>;
+ };
+ 
+@@ -225,3 +236,42 @@ &serial_1 {
+ &serial_2 {
+ 	status = "okay";
+ };
++
++&fimd {
++	pinctrl-0 = <&lcd_clk &lcd_data24>;
++	pinctrl-names = "default";
++	samsung,invert-vclk;
++	status = "okay";
++	display-timings {
++		native-mode = <&timing0>;
++		timing0: timing {
++			clock-frequency = <47500000>;
++			hactive = <1024>;
++			vactive = <600>;
++			hfront-porch = <64>;
++			hback-porch = <16>;
++			hsync-len = <48>;
++			vback-porch = <64>;
++			vfront-porch = <16>;
++			vsync-len = <3>;
++		};
++	};
++};
++
++&i2c_7 {
++	samsung,i2c-sda-delay = <100>;
++	samsung,i2c-max-bus-freq = <400000>;
++	pinctrl-0 = <&i2c7_bus>;
++	pinctrl-names = "default";
++	status = "okay";
++	ft5406: touchscreen@38 {
++		status = "okay";
++		compatible = "edt,edt-ft5306", "edt,edt-ft5x06";
++		reg = <0x38>;
++		interrupt-parent = <&gpx0>;
++		interrupts = <0 IRQ_TYPE_EDGE_FALLING>;reset-gpios = <&gpc0 2 GPIO_ACTIVE_LOW>;
++		wake-gpios = <&gpl1 1 GPIO_ACTIVE_HIGH>;
++		touchscreen-size-x = <1024>;
++		touchscreen-size-y = <600>;
++	};
++};
 diff --git a/arch/arm/boot/dts/exynos4412-itop-scp-core.dtsi b/arch/arm/boot/dts/exynos4412-itop-scp-core.dtsi
-index dfceb155b..d1b73643c 100644
+index b3726d4d7..73827d44c 100644
 --- a/arch/arm/boot/dts/exynos4412-itop-scp-core.dtsi
 +++ b/arch/arm/boot/dts/exynos4412-itop-scp-core.dtsi
-@@ -22,12 +22,12 @@
- 		device_type = "memory";
- 		reg = <0x40000000 0x40000000>;
- 	};
--
-+/*
- 	firmware@203f000 {
- 		compatible = "samsung,secure-firmware";
- 		reg = <0x0203F000 0x1000>;
- 	};
--
-+*/
- 	fixed-rate-clocks {
- 		xxti {
- 			compatible = "samsung,clock-xxti";
-@@ -48,12 +48,15 @@
- 				     cooling-device = <&cpu0 7 7>, <&cpu1 7 7>,
- 						      <&cpu2 7 7>, <&cpu3 7 7>;
- 				};
-+
- 				map1 {
- 				     /* Corresponds to 200MHz at freq_table */
- 				     cooling-device = <&cpu0 13 13>,
- 						      <&cpu1 13 13>,
- 						      <&cpu2 13 13>,
- 						      <&cpu3 13 13>;
-+
-+
- 			       };
- 		       };
- 		};
-@@ -72,43 +75,43 @@
- &bus_dmc {
- 	devfreq-events = <&ppmu_dmc0_3>, <&ppmu_dmc1_3>;
- 	vdd-supply = <&buck1_reg>;
--	status = "okay";
-+	status = "disabled";
- };
- 
- &bus_acp {
- 	devfreq = <&bus_dmc>;
--	status = "okay";
-+	status = "disabled";
- };
- 
- &bus_c2c {
- 	devfreq = <&bus_dmc>;
--	status = "okay";
-+	status = "disabled";
- };
- 
- &bus_leftbus {
- 	devfreq-events = <&ppmu_leftbus_3>, <&ppmu_rightbus_3>;
- 	vdd-supply = <&buck3_reg>;
--	status = "okay";
-+	status = "disabled";
- };
- 
- &bus_rightbus {
- 	devfreq = <&bus_leftbus>;
--	status = "okay";
-+	status = "disabled";
- };
- 
- &bus_fsys {
- 	devfreq = <&bus_leftbus>;
--	status = "okay";
-+	status = "disabled";
- };
- 
- &bus_peri {
- 	devfreq = <&bus_leftbus>;
--	status = "okay";
-+	status = "disabled";
- };
- 
- &bus_mfc {
- 	devfreq = <&bus_leftbus>;
--	status = "okay";
-+	status = "disabled";
- };
- 
- &cpu0 {
-@@ -167,7 +170,7 @@
+@@ -168,7 +168,7 @@ s5m8767: pmic@66 {
  		regulators {
  			ldo1_reg: LDO1 {
  				regulator-name = "VDD_ALIVE";
@@ -134,7 +109,7 @@ index dfceb155b..d1b73643c 100644
  				regulator-max-microvolt = <1100000>;
  				regulator-always-on;
  				regulator-boot-on;
-@@ -177,7 +180,7 @@
+@@ -178,7 +178,7 @@ ldo1_reg: LDO1 {
  			/* SCP uses 1.5v, POP uses 1.2v */
  			ldo2_reg: LDO2 {
  				regulator-name = "VDDQ_M12";
@@ -143,7 +118,7 @@ index dfceb155b..d1b73643c 100644
  				regulator-max-microvolt = <1500000>;
  				regulator-always-on;
  				regulator-boot-on;
-@@ -208,7 +211,7 @@
+@@ -209,7 +209,7 @@ ldo5_reg: LDO5 {
  			ldo6_reg: LDO6 {
  				regulator-name = "VDD10_MPLL";
  				regulator-min-microvolt = <1000000>;
@@ -152,7 +127,7 @@ index dfceb155b..d1b73643c 100644
  				regulator-always-on;
  				op_mode = <1>; /* Normal Mode */
  			};
-@@ -216,7 +219,7 @@
+@@ -217,7 +217,7 @@ ldo6_reg: LDO6 {
  			ldo7_reg: LDO7 {
  				regulator-name = "VDD10_XPLL";
  				regulator-min-microvolt = <1000000>;
@@ -161,7 +136,7 @@ index dfceb155b..d1b73643c 100644
  				regulator-always-on;
  				op_mode = <1>; /* Normal Mode */
  			};
-@@ -230,7 +233,7 @@
+@@ -231,7 +231,7 @@ ldo8_reg: LDO8 {
  
  			ldo9_reg: LDO9 {
  				regulator-name = "VDD33_LCD";
@@ -170,7 +145,7 @@ index dfceb155b..d1b73643c 100644
  				regulator-max-microvolt = <3300000>;
  				op_mode = <1>; /* Normal Mode */
  			};
-@@ -252,7 +255,7 @@
+@@ -253,7 +253,7 @@ ldo11_reg: LDO11 {
  
  			ldo12_reg: LDO12 {
  				regulator-name = "VDD33_UOTG";
@@ -179,7 +154,7 @@ index dfceb155b..d1b73643c 100644
  				regulator-max-microvolt = <3300000>;
  				regulator-always-on;
  				op_mode = <1>; /* Normal Mode */
-@@ -300,7 +303,7 @@
+@@ -301,7 +301,7 @@ ldo17_reg: LDO17 {
  			/* Used by HSIC */
  			ldo18_reg: LDO18 {
  				regulator-name = "VDDIOPERI_28";
@@ -188,7 +163,7 @@ index dfceb155b..d1b73643c 100644
  				regulator-max-microvolt = <3300000>;
  				regulator-always-on;
  				op_mode = <1>; /* Normal Mode */
-@@ -314,21 +317,21 @@
+@@ -315,21 +315,21 @@ ldo19_reg: LDO19 {
  			ldo20_reg: LDO20 {
  				regulator-name = "VDD28_CAM";
  				regulator-min-microvolt = <1800000>;
@@ -213,7 +188,7 @@ index dfceb155b..d1b73643c 100644
  				op_mode = <1>; /* Normal Mode */
  			};
  
-@@ -341,14 +344,14 @@
+@@ -342,14 +342,14 @@ ldo23_reg: LDO23 {
  
  			ldo24_reg: LDO24 {
  				regulator-name = "VDD33_A31";
@@ -230,7 +205,7 @@ index dfceb155b..d1b73643c 100644
  				regulator-max-microvolt = <1800000>;
  				op_mode = <1>; /* Normal Mode */
  			};
-@@ -370,14 +373,14 @@
+@@ -371,14 +371,14 @@ ldo27_reg: LDO27 {
  			ldo28_reg: LDO28 {
  				regulator-name = "DVDD12";
  				regulator-min-microvolt = <1200000>;
@@ -247,84 +222,21 @@ index dfceb155b..d1b73643c 100644
  				regulator-always-on;
  				regulator-boot-on;
  				op_mode = <1>; /* Normal Mode */
-@@ -386,7 +389,7 @@
- 			buck2_reg: BUCK2 {
- 				regulator-name = "vdd_arm";
- 				regulator-min-microvolt = <850000>;
--				regulator-max-microvolt = <1456250>;
-+				regulator-max-microvolt	= <1456250>;
- 				regulator-always-on;
- 				regulator-boot-on;
- 				op_mode = <1>; /* Normal Mode */
-@@ -395,7 +398,7 @@
- 			buck3_reg: BUCK3 {
- 				regulator-name = "vdd_int";
- 				regulator-min-microvolt = <875000>;
--				regulator-max-microvolt = <1200000>;
-+				regulator-max-microvolt	= <1200000>;
- 				regulator-always-on;
- 				regulator-boot-on;
- 				op_mode = <1>; /* Normal Mode */
-@@ -404,7 +407,7 @@
- 			buck4_reg: BUCK4 {
- 				regulator-name = "vdd_g3d";
- 				regulator-min-microvolt = <750000>;
--				regulator-max-microvolt = <1500000>;
-+				regulator-max-microvolt	= <1500000>;
- 				regulator-always-on;
- 				regulator-boot-on;
- 				op_mode = <1>; /* Normal Mode */
-@@ -413,7 +416,7 @@
- 			buck5_reg: BUCK5 {
- 				regulator-name = "vdd_m12";
- 				regulator-min-microvolt = <750000>;
--				regulator-max-microvolt = <1500000>;
-+				regulator-max-microvolt	= <1500000>;
- 				regulator-always-on;
- 				regulator-boot-on;
- 				op_mode = <1>; /* Normal Mode */
-@@ -422,7 +425,7 @@
- 			buck6_reg: BUCK6 {
- 				regulator-name = "vdd12_5m";
- 				regulator-min-microvolt = <750000>;
--				regulator-max-microvolt = <1500000>;
-+				regulator-max-microvolt	= <1500000>;
- 				regulator-always-on;
- 				regulator-boot-on;
- 				op_mode = <1>; /* Normal Mode */
-@@ -431,7 +434,7 @@
+@@ -432,7 +432,7 @@ buck6_reg: BUCK6 {
  			buck7_reg: BUCK7 {
  				regulator-name = "pvdd_buck7";
  				regulator-min-microvolt = <750000>;
 -				regulator-max-microvolt = <2000000>;
-+				regulator-max-microvolt	= <2050000>;
++				regulator-max-microvolt = <2050000>;
  				regulator-boot-on;
  				regulator-always-on;
  				op_mode = <1>; /* Normal Mode */
-@@ -440,7 +443,7 @@
- 			buck8_reg: BUCK8 {
- 				regulator-name = "pvdd_buck8";
- 				regulator-min-microvolt = <750000>;
--				regulator-max-microvolt = <1500000>;
-+				regulator-max-microvolt	= <1500000>;
- 				regulator-boot-on;
- 				regulator-always-on;
- 				op_mode = <1>; /* Normal Mode */
-@@ -449,7 +452,7 @@
- 			buck9_reg: BUCK9 {
- 				regulator-name = "vddf28_emmc";
- 				regulator-min-microvolt = <750000>;
--				regulator-max-microvolt = <3000000>;
-+				regulator-max-microvolt	= <3000000>;
- 				op_mode = <1>; /* Normal Mode */
- 			};
- 		};
 diff --git a/arch/arm/configs/itop_defconfig b/arch/arm/configs/itop_defconfig
 new file mode 100644
-index 000000000..6d2d7acd9
+index 000000000..f31caca86
 --- /dev/null
 +++ b/arch/arm/configs/itop_defconfig
-@@ -0,0 +1,359 @@
+@@ -0,0 +1,372 @@
 +CONFIG_SYSVIPC=y
 +CONFIG_NO_HZ=y
 +CONFIG_HIGH_RES_TIMERS=y
@@ -342,9 +254,9 @@ index 000000000..6d2d7acd9
 +CONFIG_BIG_LITTLE=y
 +CONFIG_NR_CPUS=8
 +CONFIG_HIGHMEM=y
-+CONFIG_SECCOMP=y
 +CONFIG_ARM_APPENDED_DTB=y
 +CONFIG_ARM_ATAG_DTB_COMPAT=y
++CONFIG_CMDLINE="root=/dev/ram0 rw ramdisk=8192 initrd=0x41000000,8M console=ttySAC1,115200 init=/linuxrc mem=256M"
 +CONFIG_CPU_FREQ=y
 +CONFIG_CPU_FREQ_STAT=y
 +CONFIG_CPU_FREQ_DEFAULT_GOV_ONDEMAND=y
@@ -437,7 +349,6 @@ index 000000000..6d2d7acd9
 +CONFIG_USB_RTL8152=y
 +CONFIG_USB_LAN78XX=m
 +CONFIG_USB_USBNET=y
-+CONFIG_USB_NET_DM9601=y
 +CONFIG_USB_NET_SMSC75XX=y
 +CONFIG_USB_NET_SMSC95XX=y
 +CONFIG_BRCMFMAC=m
@@ -451,7 +362,7 @@ index 000000000..6d2d7acd9
 +# CONFIG_MOUSE_PS2 is not set
 +CONFIG_MOUSE_CYAPA=y
 +CONFIG_INPUT_TOUCHSCREEN=y
-+CONFIG_TOUCHSCREEN_ATMEL_MXT=y
++CONFIG_TOUCHSCREEN_ATMEL_MXT=m
 +CONFIG_TOUCHSCREEN_MMS114=y
 +CONFIG_INPUT_MISC=y
 +CONFIG_INPUT_MAX77693_HAPTIC=y
@@ -499,6 +410,7 @@ index 000000000..6d2d7acd9
 +CONFIG_MFD_MAX8997=y
 +CONFIG_MFD_MAX8998=y
 +CONFIG_MFD_SEC_CORE=y
++CONFIG_MFD_STMPE=y
 +CONFIG_MFD_TPS65090=y
 +CONFIG_REGULATOR=y
 +CONFIG_REGULATOR_FIXED_VOLTAGE=y
@@ -520,8 +432,19 @@ index 000000000..6d2d7acd9
 +CONFIG_MEDIA_SUPPORT=m
 +# CONFIG_MEDIA_SUBDRV_AUTOSELECT is not set
 +CONFIG_MEDIA_CAMERA_SUPPORT=y
++CONFIG_MEDIA_PLATFORM_SUPPORT=y
 +CONFIG_MEDIA_USB_SUPPORT=y
 +CONFIG_USB_VIDEO_CLASS=m
++CONFIG_V4L_PLATFORM_DRIVERS=y
++CONFIG_VIDEO_SAMSUNG_EXYNOS4_IS=m
++CONFIG_VIDEO_S5P_FIMC=m
++CONFIG_VIDEO_S5P_MIPI_CSIS=m
++CONFIG_VIDEO_EXYNOS_FIMC_LITE=m
++CONFIG_VIDEO_EXYNOS4_FIMC_IS=m
++CONFIG_V4L_MEM2MEM_DRIVERS=y
++CONFIG_VIDEO_SAMSUNG_S5P_JPEG=m
++CONFIG_VIDEO_SAMSUNG_S5P_MFC=m
++CONFIG_VIDEO_SAMSUNG_EXYNOS_GSC=m
 +CONFIG_VIDEO_S5K6A3=m
 +CONFIG_VIDEO_S5C73M3=m
 +CONFIG_DRM=y
@@ -541,6 +464,7 @@ index 000000000..6d2d7acd9
 +CONFIG_DRM_TOSHIBA_TC358764=y
 +CONFIG_DRM_LIMA=y
 +CONFIG_DRM_PANFROST=y
++CONFIG_FB=y
 +CONFIG_LCD_CLASS_DEVICE=y
 +CONFIG_LCD_PLATFORM=y
 +CONFIG_BACKLIGHT_PWM=y
@@ -554,6 +478,7 @@ index 000000000..6d2d7acd9
 +CONFIG_SND_SOC_SNOW=y
 +CONFIG_SND_SOC_ODROID=y
 +CONFIG_SND_SOC_ARNDALE=y
++CONFIG_SND_SOC_SAMSUNG_MIDAS_WM1811=y
 +CONFIG_SND_SIMPLE_CARD=y
 +CONFIG_USB=y
 +CONFIG_USB_ANNOUNCE_NEW_DEVICES=y
@@ -596,11 +521,11 @@ index 000000000..6d2d7acd9
 +CONFIG_NEW_LEDS=y
 +CONFIG_LEDS_CLASS=y
 +CONFIG_LEDS_CLASS_FLASH=y
-+CONFIG_LEDS_AAT1290=y
 +CONFIG_LEDS_GPIO=y
 +CONFIG_LEDS_PWM=y
-+CONFIG_LEDS_MAX77693=y
 +CONFIG_LEDS_MAX8997=y
++CONFIG_LEDS_AAT1290=y
++CONFIG_LEDS_MAX77693=y
 +CONFIG_LEDS_TRIGGER_HEARTBEAT=y
 +CONFIG_RTC_CLASS=y
 +CONFIG_RTC_DRV_MAX8998=y
@@ -610,7 +535,8 @@ index 000000000..6d2d7acd9
 +CONFIG_RTC_DRV_S3C=y
 +CONFIG_DMADEVICES=y
 +CONFIG_PL330_DMA=y
-+CONFIG_MFD_CROS_EC=y
++CONFIG_CHROME_PLATFORMS=y
++CONFIG_CROS_EC=y
 +CONFIG_CROS_EC_I2C=y
 +CONFIG_CROS_EC_SPI=y
 +CONFIG_COMMON_CLK_MAX77686=y
@@ -628,6 +554,7 @@ index 000000000..6d2d7acd9
 +CONFIG_EXYNOS5422_DMC=y
 +CONFIG_IIO=y
 +CONFIG_EXYNOS_ADC=y
++CONFIG_STMPE_ADC=y
 +CONFIG_CM36651=y
 +CONFIG_AK8975=y
 +CONFIG_PWM=y
@@ -657,9 +584,7 @@ index 000000000..6d2d7acd9
 +CONFIG_CRYPTO_LRW=m
 +CONFIG_CRYPTO_XTS=m
 +CONFIG_CRYPTO_MD5=m
-+CONFIG_CRYPTO_SHA512=m
 +CONFIG_CRYPTO_SHA3=m
-+CONFIG_CRYPTO_SALSA20=m
 +CONFIG_CRYPTO_LZO=m
 +CONFIG_CRYPTO_LZ4=m
 +CONFIG_CRYPTO_USER_API_HASH=m
@@ -685,5 +610,5 @@ index 000000000..6d2d7acd9
 +CONFIG_DEBUG_ATOMIC_SLEEP=y
 +CONFIG_DEBUG_USER=y
 -- 
-2.17.1
+2.34.1
 
