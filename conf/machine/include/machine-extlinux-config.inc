@@ -8,5 +8,5 @@ UBOOT_EXTLINUX_LABELS = "exynos4412-itop-elite-sdcard"
 UBOOT_EXTLINUX_TIMEOUT = "20"
 
 UBOOT_EXTLINUX_ROOT = "root=/dev/mmcblk0p3"
-UBOOT_EXTLINUX_KERNEL_IMAGE_exynos4412-itop-elite-sdcard = "/uImage"
-UBOOT_EXTLINUX_FDT_exynos4412-itop-elite-sdcard = "/exynos4412-itop-elite.dtb"
+UBOOT_EXTLINUX_KERNEL_IMAGE:exynos4412-itop-elite-sdcard = "/uImage"
+UBOOT_EXTLINUX_FDT:exynos4412-itop-elite-sdcard = "/exynos4412-itop-elite.dtb"
