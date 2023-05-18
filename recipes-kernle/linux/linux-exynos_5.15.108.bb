@@ -24,4 +24,5 @@ DEFAULT_PREFERENCE = "${@bb.utils.contains('SOURCE_SELECTION', 'github', '-1', '
 
 KERNEL_EXTRA_ARGS += "LOADADDR=${KERNEL_LOADADDR}"
 
+# Do not deploy kernel module with specfic tarball
 MODULE_TARBALL_DEPLOY = "0"
