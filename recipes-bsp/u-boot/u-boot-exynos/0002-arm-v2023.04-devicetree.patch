@@ -1,9 +1,8 @@
-From d39b5fe91600bbfb5776a9cdaaf5774dcbb6d30f Mon Sep 17 00:00:00 2001
+From 33cb8465882a1fafa3b25ef0840fef59db2e57fc Mon Sep 17 00:00:00 2001
 From: He Yong <hyyoxhk@163.com>
-Date: Mon, 24 Apr 2023 10:02:08 +0800
-Subject: [PATCH 4/5] dts: add device tree for iTop-4412 board
+Date: Thu, 18 May 2023 11:49:44 +0800
+Subject: [PATCH 2/5] arm-v2023.04-devicetree
 
-Signed-off-by: He Yong <hyyoxhk@163.com>
 ---
  arch/arm/dts/Makefile                  |   3 +-
  arch/arm/dts/exynos4412-itop-elite.dts | 409 +++++++++++++++++++++++++
@@ -11,10 +10,10 @@ Signed-off-by: He Yong <hyyoxhk@163.com>
  create mode 100644 arch/arm/dts/exynos4412-itop-elite.dts
 
 diff --git a/arch/arm/dts/Makefile b/arch/arm/dts/Makefile
-index b3e2a9c9..78858f93 100644
+index c160e884..70f1734e 100644
 --- a/arch/arm/dts/Makefile
 +++ b/arch/arm/dts/Makefile
-@@ -12,7 +12,8 @@ dtb-$(CONFIG_EXYNOS4) += exynos4210-origen.dtb \
+@@ -12,7 +12,8 @@ dtb-$(CONFIG_ARCH_EXYNOS4) += exynos4210-origen.dtb \
  	exynos4210-universal_c210.dtb \
  	exynos4210-trats.dtb \
  	exynos4412-trats2.dtb \

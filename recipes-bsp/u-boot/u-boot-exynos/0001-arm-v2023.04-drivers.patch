@@ -1,12 +1,8 @@
-From 6a2e7bc7843aa9966d0663663ac56d98d9f4b096 Mon Sep 17 00:00:00 2001
+From e4dc368ba24012cc6791b2a898e4c396d59a0e89 Mon Sep 17 00:00:00 2001
 From: He Yong <hyyoxhk@163.com>
-Date: Mon, 24 Apr 2023 10:00:19 +0800
-Subject: [PATCH 1/5] Add support for Davicom DM96xx based USB 10/100 ethernet
- devices
+Date: Thu, 18 May 2023 11:38:58 +0800
+Subject: [PATCH 1/5] arm-v2023.04-drivers
 
-Ported from Linux driver - drivers/net/usb/dm9601.c
-
-Signed-off-by: He Yong <hyyoxhk@163.com>
 ---
  drivers/usb/eth/Kconfig  |   8 +
  drivers/usb/eth/Makefile |   1 +

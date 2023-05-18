@@ -1,10 +1,8 @@
-From 6f8e19182c6dc0f9e5828f90659a187698e4f800 Mon Sep 17 00:00:00 2001
+From 47a578969be528fd535ec227629a335cd6f74908 Mon Sep 17 00:00:00 2001
 From: He Yong <hyyoxhk@163.com>
-Date: Mon, 24 Apr 2023 10:04:15 +0800
-Subject: [PATCH 5/5] ARM: Samsung: Add support for iTop-4412 based on Samsung
- Exynos4412
+Date: Thu, 18 May 2023 11:51:35 +0800
+Subject: [PATCH 3/5] arm-v2023.04-board
 
-Signed-off-by: He Yong <hyyoxhk@163.com>
 ---
  arch/arm/mach-exynos/Kconfig   |   4 +
  board/samsung/itop/Kconfig     |  12 ++
@@ -12,24 +10,22 @@ Signed-off-by: He Yong <hyyoxhk@163.com>
  board/samsung/itop/Makefile    |   6 +
  board/samsung/itop/itop.c      | 333 +++++++++++++++++++++++++++++++++
  board/samsung/itop/setup.h     | 274 +++++++++++++++++++++++++++
- configs/itop_defconfig         |  94 ++++++++++
- include/configs/itop.h         | 173 +++++++++++++++++
- 8 files changed, 902 insertions(+)
+ include/configs/itop.h         | 155 +++++++++++++++
+ 7 files changed, 790 insertions(+)
  create mode 100644 board/samsung/itop/Kconfig
  create mode 100644 board/samsung/itop/MAINTAINERS
  create mode 100644 board/samsung/itop/Makefile
  create mode 100644 board/samsung/itop/itop.c
  create mode 100644 board/samsung/itop/setup.h
- create mode 100644 configs/itop_defconfig
  create mode 100644 include/configs/itop.h
 
 diff --git a/arch/arm/mach-exynos/Kconfig b/arch/arm/mach-exynos/Kconfig
-index 7f3aee57..fccff512 100644
+index 8f3aee05..a079b43c 100644
 --- a/arch/arm/mach-exynos/Kconfig
 +++ b/arch/arm/mach-exynos/Kconfig
-@@ -73,6 +73,9 @@ config TARGET_TRATS2
- config TARGET_ODROID
+@@ -95,6 +95,9 @@ config TARGET_ODROID
  	bool "Exynos4412 Odroid board"
+ 	select MISC_COMMON
  
 +config TARGET_ITOP
 +	bool "Exynos4412 iTop-4412 board"
@@ -37,7 +33,7 @@ index 7f3aee57..fccff512 100644
  endchoice
  endif
  
-@@ -190,6 +193,7 @@ source "board/samsung/universal_c210/Kconfig"
+@@ -247,6 +250,7 @@ source "board/samsung/universal_c210/Kconfig"
  source "board/samsung/origen/Kconfig"
  source "board/samsung/trats2/Kconfig"
  source "board/samsung/odroid/Kconfig"
@@ -89,7 +85,7 @@ index 00000000..509a7cd1
 +obj-y	:= itop.o
 diff --git a/board/samsung/itop/itop.c b/board/samsung/itop/itop.c
 new file mode 100644
-index 00000000..40878ea4
+index 00000000..4e0959ec
 --- /dev/null
 +++ b/board/samsung/itop/itop.c
 @@ -0,0 +1,333 @@
@@ -250,8 +246,8 @@ index 00000000..40878ea4
 +	if (mmc_init(mmc))
 +		return NULL;
 +
-+	alt_boot = IS_SD(mmc) ? CONFIG_DFU_ALT_BOOT_SD :
-+				CONFIG_DFU_ALT_BOOT_EMMC;
++	alt_boot = IS_SD(mmc) ? CFG_DFU_ALT_BOOT_SD :
++				CFG_DFU_ALT_BOOT_EMMC;
 +
 +	return alt_boot;
 +}
@@ -381,9 +377,9 @@ index 00000000..40878ea4
 +	return 0;
 +}
 +
-+const char *env_ext4_get_dev_part(void)
++char *env_fat_get_dev_part(void)
 +{
-+	static char *const dev_part[] = {"0:auto", "1:auto"};
++	static char *dev_part[] = {"0:auto", "1:auto"};
 +	u32 bootmode = get_boot_mode();
 +
 +	if (bootmode == BOOT_MODE_SD) {
@@ -405,8 +401,8 @@ index 00000000..40878ea4
 +	case BOOT_MODE_EMMC_SD:
 +		if (CONFIG_IS_ENABLED(ENV_IS_IN_MMC))
 +			return ENVL_MMC;
-+		else if (CONFIG_IS_ENABLED(ENV_IS_IN_EXT4))
-+			return ENVL_EXT4;
++		else if (CONFIG_IS_ENABLED(ENV_IS_IN_FAT))
++			return ENVL_FAT;
 +		else
 +			return ENVL_NOWHERE;
 +	default:
@@ -706,112 +702,12 @@ index 00000000..dc4f3f74
 +#define CLK_SRC_FSYS_VAL	(MMC1_SEL(6) | MMC2_SEL(6) | MMC3_SEL(6) \
 +				| MMC4_SEL(6) | MIPIHSI_SEL(0))
 +#endif
-diff --git a/configs/itop_defconfig b/configs/itop_defconfig
-new file mode 100644
-index 00000000..e1575080
---- /dev/null
-+++ b/configs/itop_defconfig
-@@ -0,0 +1,94 @@
-+CONFIG_ARM=y
-+CONFIG_ARCH_CPU_INIT=y
-+CONFIG_ARCH_EXYNOS=y
-+CONFIG_SYS_TEXT_BASE=0x43e00000
-+CONFIG_ARCH_EXYNOS4=y
-+CONFIG_TARGET_ITOP=y
-+CONFIG_ENV_SIZE=0x4000
-+CONFIG_IDENT_STRING=" for iTop-4412"
-+CONFIG_DEFAULT_DEVICE_TREE="exynos4412-itop-elite"
-+CONFIG_DISTRO_DEFAULTS=y
-+# CONFIG_SYS_MALLOC_CLEAR_ON_INIT is not set
-+CONFIG_SYS_LOAD_ADDR=0x43e00000
-+CONFIG_FIT=y
-+CONFIG_FIT_VERBOSE=y
-+# CONFIG_USE_BOOTCOMMAND is not set
-+# CONFIG_CONSOLE_MUX is not set
-+CONFIG_SYS_CONSOLE_IS_IN_ENV=y
-+CONFIG_SYS_CONSOLE_INFO_QUIET=y
-+CONFIG_MISC_INIT_R=y
-+CONFIG_BOARD_TYPES=y
-+CONFIG_SYS_PROMPT="u-boot # "
-+CONFIG_CMD_ADTIMG=y
-+# CONFIG_CMD_ELF is not set
-+# CONFIG_CMD_XIMG is not set
-+# CONFIG_CMD_EXPORTENV is not set
-+# CONFIG_CMD_IMPORTENV is not set
-+CONFIG_CMD_MEMINFO=y
-+# CONFIG_CMD_RANDOM is not set
-+CONFIG_CMD_MEMTEST=y
-+CONFIG_SYS_MEMTEST_START=0x40000000
-+CONFIG_SYS_MEMTEST_END=0x44000000
-+CONFIG_CMD_DFU=y
-+CONFIG_CMD_GPIO=y
-+CONFIG_CMD_GPT=y
-+CONFIG_CMD_MMC=y
-+# CONFIG_CMD_SF is not set
-+CONFIG_CMD_USB=y
-+CONFIG_CMD_USB_MASS_STORAGE=y
-+CONFIG_CMD_CACHE=y
-+CONFIG_CMD_TIME=y
-+CONFIG_CMD_TIMER=y
-+CONFIG_CMD_PMIC=y
-+CONFIG_CMD_REGULATOR=y
-+CONFIG_CMD_EXT4_WRITE=y
-+CONFIG_PARTITION_TYPE_GUID=y
-+CONFIG_OF_CONTROL=y
-+CONFIG_ENV_OVERWRITE=y
-+CONFIG_ENV_IS_NOWHERE=y
-+CONFIG_ENV_IS_IN_FAT=y
-+# CONFIG_ENV_IS_IN_MMC is not set
-+CONFIG_ENV_FAT_DEVICE_AND_PART="0:auto"
-+CONFIG_SYS_RELOC_GD_ENV_ADDR=y
-+CONFIG_ENV_VARS_UBOOT_RUNTIME_CONFIG=y
-+CONFIG_NET_RANDOM_ETHADDR=y
-+CONFIG_DFU_MMC=y
-+CONFIG_DFU_RAM=y
-+CONFIG_DFU_VIRT=y
-+CONFIG_USB_FUNCTION_FASTBOOT=y
-+CONFIG_FASTBOOT_BUF_ADDR=0x40000000
-+CONFIG_FASTBOOT_BUF_SIZE=0x02000000
-+CONFIG_FASTBOOT_FLASH=y
-+CONFIG_FASTBOOT_FLASH_MMC_DEV=0
-+CONFIG_SYS_I2C_S3C24X0=y
-+CONFIG_LED=y
-+CONFIG_LED_GPIO=y
-+CONFIG_SUPPORT_EMMC_BOOT=y
-+CONFIG_MMC_DW=y
-+CONFIG_MMC_SDHCI=y
-+CONFIG_MMC_SDHCI_SDMA=y
-+CONFIG_MMC_SDHCI_S5P=y
-+# CONFIG_SPI_FLASH is not set
-+CONFIG_DM_ETH=y
-+CONFIG_DM_PMIC=y
-+# CONFIG_SPL_PMIC_CHILDREN is not set
-+CONFIG_PMIC_S5M8767=y
-+CONFIG_DM_REGULATOR=y
-+CONFIG_REGULATOR_S5M8767=y
-+CONFIG_SERIAL_RX_BUFFER=y
-+CONFIG_TEE=y
-+CONFIG_USB=y
-+CONFIG_DM_USB=y
-+CONFIG_USB_EHCI_HCD=y
-+CONFIG_USB_GADGET=y
-+CONFIG_USB_GADGET_MANUFACTURER="Samsung"
-+CONFIG_USB_GADGET_VENDOR_NUM=0x04e8
-+CONFIG_USB_GADGET_PRODUCT_NUM=0x6601
-+CONFIG_USB_GADGET_DWC2_OTG=y
-+CONFIG_USB_HOST_ETHER=y
-+CONFIG_USB_ETHER_DM9601=y
-+CONFIG_DM_VIDEO=y
-+CONFIG_VIDEO_MIPI_DSI=y
-+CONFIG_DISPLAY=y
-+CONFIG_VIDEO_BRIDGE=y
-+CONFIG_LIB_HW_RAND=y
 diff --git a/include/configs/itop.h b/include/configs/itop.h
 new file mode 100644
-index 00000000..bbc55e85
+index 00000000..b2fca8ec
 --- /dev/null
 +++ b/include/configs/itop.h
-@@ -0,0 +1,173 @@
+@@ -0,0 +1,155 @@
 +/* SPDX-License-Identifier: GPL-2.0+ */
 +/*
 + * Copyright (C) 2020 hey <hyyoxhk@163.com>
@@ -826,18 +722,14 @@ index 00000000..bbc55e85
 +
 +/*#define CONFIG_SYS_L2CACHE_OFF*/
 +#ifndef CONFIG_SYS_L2CACHE_OFF
-+#define CONFIG_SYS_L2_PL310
-+#define CONFIG_SYS_PL310_BASE	0x10502000
++#define CFG_SYS_PL310_BASE	0x10502000
 +#endif
 +
 +#define CONFIG_MACH_TYPE	5115
 +
-+#define CONFIG_SYS_SDRAM_BASE	0x40000000
++#define CFG_SYS_SDRAM_BASE	0x40000000
 +#define SDRAM_BANK_SIZE		(256 << 20)	/* 256 MB */
-+#define PHYS_SDRAM_1		CONFIG_SYS_SDRAM_BASE
-+/* Reserve the last 1 MiB for the secure firmware */
-+#define CONFIG_SYS_MEM_TOP_HIDE		BIT(20)
-+#define CONFIG_TZSW_RESERVED_DRAM_SIZE	CONFIG_SYS_MEM_TOP_HIDE
++#define PHYS_SDRAM_1		CFG_SYS_SDRAM_BASE
 +
 +#include <linux/sizes.h>
 +
@@ -845,15 +737,9 @@ index 00000000..bbc55e85
 + * For booting Linux, use the first 512 MB of memory, since this is
 + * the maximum mapped by the Linux kernel during initialization.
 + */
-+#define CONFIG_SYS_BOOTMAPSZ		SZ_512M
-+
-+/* Extend size of kernel image for uncompression */
-+#define CONFIG_SYS_BOOTM_LEN		SZ_32M
++#define CFG_SYS_BOOTMAPSZ		SZ_512M
 +
 +#define CONFIG_BOOTCOMMAND		"run distro_bootcmd ; run autoboot"
-+
-+#define CONFIG_SYS_INIT_SP_ADDR	(CONFIG_SYS_LOAD_ADDR \
-+					- GENERATED_GBL_DATA_SIZE)
 +
 +#define CONFIG_SYS_MONITOR_BASE	0x00000000
 +
@@ -861,22 +747,22 @@ index 00000000..bbc55e85
 +#define PARTS_BOOT		"boot"
 +#define PARTS_ROOT		"platform"
 +
-+#define CONFIG_DFU_ALT \
++#define CFG_DFU_ALT \
 +	"uImage fat 0 1;" \
 +	"zImage fat 0 1;" \
 +	"exynos4412-itop-elite.dtb fat 0 1;" \
 +	""PARTS_BOOT" part 0 1;" \
 +	""PARTS_ROOT" part 0 2\0" \
 +
-+#define CONFIG_SET_DFU_ALT_BUF_LEN	(SZ_1K)
++#define CFG_SET_DFU_ALT_BUF_LEN	(SZ_1K)
 +
-+#define CONFIG_DFU_ALT_BOOT_EMMC \
++#define CFG_DFU_ALT_BOOT_EMMC \
 +	"u-boot raw 0x3e 0x800 mmcpart 1;" \
 +	"bl1 raw 0x0 0x1e mmcpart 1;" \
 +	"bl2 raw 0x1e 0x1d mmcpart 1;" \
 +	"tzsw raw 0x83e 0x138 mmcpart 1\0"
 +
-+#define CONFIG_DFU_ALT_BOOT_SD \
++#define CFG_DFU_ALT_BOOT_SD \
 +	"u-boot raw 0x3f 0x800;" \
 +	"bl1 raw 0x1 0x1e;" \
 +	"bl2 raw 0x1f 0x1d;" \
@@ -902,7 +788,7 @@ index 00000000..bbc55e85
 + * 1.  BOOT:  100MiB 2MiB
 + * 2.  ROOT:  -
 + */
-+#define CONFIG_EXTRA_ENV_SETTINGS \
++#define CFG_EXTRA_ENV_SETTINGS \
 +	"loadbootscript=load mmc ${mmcbootdev}:${mmcbootpart} ${scriptaddr} " \
 +		"boot.scr\0" \
 +	"loadkernel=load mmc ${mmcbootdev}:${mmcbootpart} ${kernel_addr_r} " \
@@ -963,26 +849,18 @@ index 00000000..bbc55e85
 +	"mmcbootpart=1\0" \
 +	"mmcrootdev=0\0" \
 +	"mmcrootpart=2\0" \
-+	"dfu_alt_system="CONFIG_DFU_ALT \
++	"dfu_alt_system="CFG_DFU_ALT \
 +	"dfu_alt_info=Please reset the board\0" \
 +	"consoleon=set console console=ttySAC1,115200n8; save; reset\0" \
 +	"consoleoff=set console console=ram; save; reset\0" \
 +	"initrdname=uInitrd\0" \
-+	"ramdisk_addr_r=0x42000000\0" \
-+	"scriptaddr=0x42000000\0" \
-+	"fdt_addr_r=0x41900000\0" \
-+	"kernel_addr_r=0x41e00000\0" \
++	"ramdisk_addr_r=0x44400000\0" \
++	"fdtoverlay_addr_r=0x44300000\0" \
++	"pxefile_addr_r=0x44200000\0" \
++	"scriptaddr=0x44100000\0" \
++	"fdt_addr_r=0x44000000\0" \
++	"kernel_addr_r=0x42000000\0" \
 +	BOOTENV
-+
-+/* GPT */
-+
-+/* Security subsystem - enable hw_rand() */
-+#define CONFIG_EXYNOS_ACE_SHA
-+
-+/* USB */
-+#define CONFIG_USB_EHCI_EXYNOS
-+
-+#define CONFIG_EXYNOS_FB
 +
 +#endif	/* __CONFIG_H */
 -- 
