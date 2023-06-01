@@ -1,17 +1,17 @@
-From 47a578969be528fd535ec227629a335cd6f74908 Mon Sep 17 00:00:00 2001
+From 9d662c63b96a74f5f6917536947486936f78300a Mon Sep 17 00:00:00 2001
 From: He Yong <hyyoxhk@163.com>
 Date: Thu, 18 May 2023 11:51:35 +0800
-Subject: [PATCH 3/5] arm-v2023.04-board
+Subject: [PATCH] arm-v2023.04-board
 
 ---
  arch/arm/mach-exynos/Kconfig   |   4 +
  board/samsung/itop/Kconfig     |  12 ++
  board/samsung/itop/MAINTAINERS |   6 +
  board/samsung/itop/Makefile    |   6 +
- board/samsung/itop/itop.c      | 333 +++++++++++++++++++++++++++++++++
+ board/samsung/itop/itop.c      | 337 +++++++++++++++++++++++++++++++++
  board/samsung/itop/setup.h     | 274 +++++++++++++++++++++++++++
  include/configs/itop.h         | 155 +++++++++++++++
- 7 files changed, 790 insertions(+)
+ 7 files changed, 794 insertions(+)
  create mode 100644 board/samsung/itop/Kconfig
  create mode 100644 board/samsung/itop/MAINTAINERS
  create mode 100644 board/samsung/itop/Makefile
@@ -85,10 +85,10 @@ index 00000000..509a7cd1
 +obj-y	:= itop.o
 diff --git a/board/samsung/itop/itop.c b/board/samsung/itop/itop.c
 new file mode 100644
-index 00000000..4e0959ec
+index 00000000..baa1b176
 --- /dev/null
 +++ b/board/samsung/itop/itop.c
-@@ -0,0 +1,333 @@
+@@ -0,0 +1,337 @@
 +// SPDX-License-Identifier: GPL-2.0+
 +/*
 + * Copyright (C) 2020 hey <hyyoxhk@163.com>
@@ -208,9 +208,13 @@ index 00000000..4e0959ec
 +	case BOOT_MODE_SD:
 +		env_set("boot_device", "mmc");
 +		env_set("boot_instance", "0");
++		env_set("mmcroot", "/dev/ram0");
++		env_set("LABEL", "install");
 +	case BOOT_MODE_EMMC_SD:
 +		env_set("boot_device", "mmc");
 +		env_set("boot_instance", "1");
++		env_set("mmcroot", "/dev/mmcblk1p2 rootwait rw");
++		env_set("LABEL", "boot");
 +		break;
 +	default:
 +		pr_debug("unexpected boot mode = %x\n", bootmode);
