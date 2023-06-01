@@ -37,6 +37,8 @@ do_compile:append() {
     oe_runmake -C ${S} O=${B} DEVICE_TREE=${UBOOT_DEVICETREE}
 }
 
+UBOOT_INITIAL_ENV = "u-boot-initial-env"
+
 #INSANE_SKIP:${PN} += "ldflags"
 
 #INSANE_SKIP:${PN} += "textrel"

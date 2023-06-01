@@ -5,7 +5,9 @@ LIC_FILES_CHKSUM = "file://Licenses/README;md5=2ca5f2c35c8cc335f0a19756634782f1"
 
 include u-boot-exynos.inc
 
-SRC_URI = "https://ftp.denx.de/pub/u-boot/u-boot-${PV}.tar.bz2"
+SRC_URI = "https://ftp.denx.de/pub/u-boot/u-boot-${PV}.tar.bz2 \
+           file://fw_env.config \
+"
 SRC_URI[md5sum] = "b90cb4a3b8f02f18872197b052222d19"
 SRC_URI[sha256sum] = "e31cac91545ff41b71cec5d8c22afd695645cd6e2a442ccdacacd60534069341"
 
