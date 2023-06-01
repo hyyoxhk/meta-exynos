@@ -1,0 +1,17 @@
+# short-description: Create EMMC image with a boot partition (1GB)
+# long-description: Creates a partitioned EMMC image (1GB)
+#
+#  ------- --------- -------------- -------------
+# |   fsbl | u-boot  |     bootfs   |    rootfs |
+#  ------- --------- -------------- -------------
+# ^       ^         ^              ^             ^
+# |       |         |              |             |
+# 0    25kB       2MB           64MB         768M
+#
+
+part   --source bootimg-partition  --fstype=vfat --label bootfs --active --fixed-size 64M --align 700
+part / --source rootfs --fstype=ext4 --label rootfs --fixed-size 1024M
+part   --source rootfs --fstype=ext4 --label rootfs --fixed-size 1024M
+part   --source rawcopy --sourceparams="file=smart-image-userfs-${DISTRO}-${MACHINE}.ext4" --fstype=ext4 --label userfs --fixed-size 64M
+
+bootloader --ptable gpt

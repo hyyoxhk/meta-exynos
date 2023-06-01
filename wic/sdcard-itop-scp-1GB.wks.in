@@ -1,15 +1,12 @@
-# short-description: Create SD card image with a boot partition (1GB)
-# long-description: Creates a partitioned SD card image (1GB)
-#
-#  ------- --------- -------------- -------------
-# |   fsbl | u-boot  |     bootfs   |    rootfs |
-#  ------- --------- -------------- -------------
-# ^       ^         ^              ^             ^
-# |       |         |              |             |
-# 0    25kB       2MB           64MB         768M
-#
-part ssbl  --source rawcopy --fstype=ext4 --fsoptions "noauto" --sourceparams="file=u-boot-exynos.bin" --ondisk mmcblk --fixed-size 2048K --align 25
-part /boot --source bootimg-partition --ondisk mmcblk0 --fstype=vfat --label bootfs --active --fixed-size 64M
-part / --source rootfs --ondisk mmcblk0 --fstype=ext4 --label rootfs --fixed-size 768M
+# short-description: Create SD card image with 2 partitions
+# long-description: Creates a partitioned SD card image
+# Boot files are located in the first vfat partition with extra reserved space.
 
-bootloader --ptable msdos --configfile="${DEPLOY_DIR_IMAGE}/extlinux.conf"
+part   --source rawcopy --fsoptions "noauto" --sourceparams="file=E4412_N.bl1.SCP2G.bin" --offset 1S --no-table
+part   --source rawcopy --fsoptions "noauto" --sourceparams="file=exynos-bl2.img" --offset 31S --no-table
+part   --source rawcopy --fsoptions "noauto" --sourceparams="file=u-boot.bin" --offset 63S --no-table
+part   --source rawcopy --fsoptions "noauto" --sourceparams="file=tzsw_SMDK4412_SCP_2GB.bin" --offset 1087S --no-table
+part /boot --source bootimg-partition  --fstype=vfat --label boot --active --fixed-size 64M --align 700
+part /     --source rootfs --fstype=ext4 --label root
+
+bootloader --ptable msdos
