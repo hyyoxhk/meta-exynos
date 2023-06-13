@@ -1,0 +1,380 @@
+From 49a38bd346f68f7b3d910043f26d4574c6532ea6 Mon Sep 17 00:00:00 2001
+From: He Yong <hyyoxhk@163.com>
+Date: Tue, 13 Jun 2023 22:01:33 +0800
+Subject: [PATCH 1/2] arm-5.15.108-devicetree
+
+---
+ arch/arm/boot/dts/exynos4412-itop-elite.dts   | 160 +++++++++++++++++-
+ .../boot/dts/exynos4412-itop-scp-core.dtsi    |  46 +++--
+ 2 files changed, 185 insertions(+), 21 deletions(-)
+
+diff --git a/arch/arm/boot/dts/exynos4412-itop-elite.dts b/arch/arm/boot/dts/exynos4412-itop-elite.dts
+index 47431307c..a0d0f7b07 100644
+--- a/arch/arm/boot/dts/exynos4412-itop-elite.dts
++++ b/arch/arm/boot/dts/exynos4412-itop-elite.dts
+@@ -29,7 +29,7 @@ leds {
+ 
+ 		led2 {
+ 			label = "red:system";
+-			gpios = <&gpx1 0 GPIO_ACTIVE_HIGH>;
++			gpios = <&gpl2 0 GPIO_ACTIVE_HIGH>;
+ 			default-state = "off";
+ 			linux,default-trigger = "heartbeat";
+ 		};
+@@ -115,7 +115,74 @@ link0_codec: simple-audio-card,codec {
+ 	beep {
+ 		compatible = "pwm-beeper";
+ 		pwms = <&pwm 0 4000000 PWM_POLARITY_INVERTED>;
++		pinctrl-0 = <&pwm0_out>;
++		pinctrl-names = "default";
+ 	};
++
++	hdmi_en: hdmi-5v {
++		compatible = "regulator-fixed";
++		regulator-name = "HDMI_5V";
++		regulator-min-microvolt = <5000000>;
++		regulator-max-microvolt = <5000000>;
++		gpio = <&gpl0 6 GPIO_ACTIVE_HIGH>;
++		enable-active-high;
++	};
++
++	backlight: backlight {
++		compatible = "pwm-backlight";
++		pwms = <&pwm 1 1000000 0>;
++		brightness-levels = <
++			0  1  2  3  4  5  6  7  8  9
++			10 11 12 13 14 15 16 17 18 19
++			20 21 22 23 24 25
++		>;
++		default-brightness-level = <25>;
++		enable-gpios = <&gpl0 4 GPIO_ACTIVE_HIGH>;
++		pinctrl-0 = <&pwm1_out>;
++		pinctrl-names = "default";
++	};
++
++	panel {
++		compatible = "panel-dpi";
++		backlight = <&backlight>;
++
++		width-mm = <98>;
++		height-mm = <56>;
++
++		panel-timing {
++			clock-frequency = <1100000>;
++			hactive = <480>;
++			vactive = <272>;
++			hfront-porch = <2>;
++			hback-porch = <2>;
++			hsync-len = <41>;
++			vfront-porch = <2>;
++			vback-porch = <2>;
++			vsync-len = <10>;
++
++			hsync-active = <1>;
++			vsync-active = <1>;
++			de-active = <1>;
++			pixelclk-active = <1>;
++		};
++
++		port {
++			panel_dpi_in: endpoint {
++				remote-endpoint = <&panel_dpi_out>;
++			};
++		};
++	};
++
++	// panel {
++	// 	compatible = "wanxin,wxcat43tg6";
++	// 	backlight = <&backlight>;
++
++	// 	port {
++	// 		panel_dpi_in: endpoint {
++	// 			remote-endpoint = <&panel_dpi_out>;
++	// 		};
++	// 	};
++	// };
+ };
+ 
+ &adc {
+@@ -202,9 +269,7 @@ ether-reset {
+ 
+ &pwm {
+ 	status = "okay";
+-	pinctrl-0 = <&pwm0_out>;
+-	pinctrl-names = "default";
+-	samsung,pwm-outputs = <0>;
++	samsung,pwm-outputs = <1>;
+ };
+ 
+ &sdhci_2 {
+@@ -218,10 +283,93 @@ &sdhci_2 {
+ 	status = "okay";
+ };
+ 
+-&serial_1 {
++&serial_2 {
+ 	status = "okay";
+ };
+ 
+-&serial_2 {
++&serial_3 {
++	status = "okay";
++};
++
++&fimd {
++	pinctrl-0 = <&lcd_clk &lcd_data24>;
++	pinctrl-names = "default";
++	status = "okay";
++
++	ports {
++		#address-cells = <1>;
++		#size-cells = <0>;
++
++		port@3 {
++			reg = <3>;
++
++			panel_dpi_out: endpoint {
++				remote-endpoint = <&panel_dpi_in>;
++			};
++		};
++	};
++
++	// display-timings {
++	// 	native-mode = <&timing0>;
++	// 	timing0: timing {
++	// 		clock-frequency = <1500000>;
++	// 		hactive = <480>;
++	// 		vactive = <272>;
++	// 		hfront-porch = <2>;
++	// 		hback-porch = <2>;
++	// 		hsync-len = <41>;
++	// 		vfront-porch = <2>;
++	// 		vback-porch = <2>;
++	// 		vsync-len = <10>;
++	// 		pixelclk-active = <1>;
++	// 	};
++	// };
++};
++
++&i2c_7 {
++	samsung,i2c-sda-delay = <100>;
++	samsung,i2c-max-bus-freq = <400000>;
++	pinctrl-0 = <&i2c7_bus>;
++	pinctrl-names = "default";
++	status = "okay";
++
++	// tsc2007@48 {
++	// 	compatible = "ti,tsc2007";
++	// 	reg = <0x48>;
++	// 	pinctrl-names = "default";
++	// 	pinctrl-0 = <&eint0>;
++	// 	interrupt-parent = <&gpx0>;
++	// 	interrupts = <0 IRQ_TYPE_NONE>;
++	// 	gpios = <&gpx0 0 GPIO_ACTIVE_LOW>;
++	// 	ti,x-plate-ohms = <660>;
++	// 	status = "okay";
++	// };
++};
++
++&hdmi {
++	hpd-gpios = <&gpx3 7 GPIO_ACTIVE_HIGH>;
++	pinctrl-names = "default";
++	pinctrl-0 = <&eint31>;
++	hdmi-en-supply = <&hdmi_en>;
++	vdd-supply = <&ldo13_reg>;
++	vdd_osc-supply = <&ldo13_reg>;
++	vdd_pll-supply = <&ldo13_reg>;
++	ddc = <&i2c_0>;
++	status = "okay";
++};
++
++&mixer {
++	status = "okay";
++};
++
++&hdmicec {
++	status = "okay";
++};
++
++&i2c_0 {
++	status = "okay";
++};
++
++&i2c_8 {
+ 	status = "okay";
+ };
+diff --git a/arch/arm/boot/dts/exynos4412-itop-scp-core.dtsi b/arch/arm/boot/dts/exynos4412-itop-scp-core.dtsi
+index b3726d4d7..b8fa6bda5 100644
+--- a/arch/arm/boot/dts/exynos4412-itop-scp-core.dtsi
++++ b/arch/arm/boot/dts/exynos4412-itop-scp-core.dtsi
+@@ -69,6 +69,11 @@ usb-hub {
+ 	};
+ };
+ 
++&pmu_system_controller {
++	assigned-clocks = <&pmu_system_controller 0>;
++	assigned-clock-parents =  <&clock CLK_XUSBXTI>;
++};
++
+ &bus_dmc {
+ 	devfreq-events = <&ppmu_dmc0_3>, <&ppmu_dmc1_3>;
+ 	vdd-supply = <&buck1_reg>;
+@@ -96,6 +101,11 @@ &bus_rightbus {
+ 	status = "okay";
+ };
+ 
++&bus_display {
++	devfreq = <&bus_leftbus>;
++	status = "okay";
++};
++
+ &bus_fsys {
+ 	devfreq = <&bus_leftbus>;
+ 	status = "okay";
+@@ -111,6 +121,12 @@ &bus_mfc {
+ 	status = "okay";
+ };
+ 
++&clock {
++	clocks = <&clock CLK_XUSBXTI>;
++	assigned-clocks = <&clock CLK_FOUT_EPLL>;
++	assigned-clock-rates = <45158401>;
++};
++
+ &cpu0 {
+ 	cpu0-supply = <&buck2_reg>;
+ };
+@@ -168,7 +184,7 @@ s5m8767: pmic@66 {
+ 		regulators {
+ 			ldo1_reg: LDO1 {
+ 				regulator-name = "VDD_ALIVE";
+-				regulator-min-microvolt = <1100000>;
++				regulator-min-microvolt = <1000000>;
+ 				regulator-max-microvolt = <1100000>;
+ 				regulator-always-on;
+ 				regulator-boot-on;
+@@ -178,7 +194,7 @@ ldo1_reg: LDO1 {
+ 			/* SCP uses 1.5v, POP uses 1.2v */
+ 			ldo2_reg: LDO2 {
+ 				regulator-name = "VDDQ_M12";
+-				regulator-min-microvolt = <1500000>;
++				regulator-min-microvolt = <1200000>;
+ 				regulator-max-microvolt = <1500000>;
+ 				regulator-always-on;
+ 				regulator-boot-on;
+@@ -209,7 +225,7 @@ ldo5_reg: LDO5 {
+ 			ldo6_reg: LDO6 {
+ 				regulator-name = "VDD10_MPLL";
+ 				regulator-min-microvolt = <1000000>;
+-				regulator-max-microvolt = <1000000>;
++				regulator-max-microvolt = <1100000>;
+ 				regulator-always-on;
+ 				op_mode = <1>; /* Normal Mode */
+ 			};
+@@ -217,7 +233,7 @@ ldo6_reg: LDO6 {
+ 			ldo7_reg: LDO7 {
+ 				regulator-name = "VDD10_XPLL";
+ 				regulator-min-microvolt = <1000000>;
+-				regulator-max-microvolt = <1000000>;
++				regulator-max-microvolt = <1100000>;
+ 				regulator-always-on;
+ 				op_mode = <1>; /* Normal Mode */
+ 			};
+@@ -231,7 +247,7 @@ ldo8_reg: LDO8 {
+ 
+ 			ldo9_reg: LDO9 {
+ 				regulator-name = "VDD33_LCD";
+-				regulator-min-microvolt = <3300000>;
++				regulator-min-microvolt = <3000000>;
+ 				regulator-max-microvolt = <3300000>;
+ 				op_mode = <1>; /* Normal Mode */
+ 			};
+@@ -253,7 +269,7 @@ ldo11_reg: LDO11 {
+ 
+ 			ldo12_reg: LDO12 {
+ 				regulator-name = "VDD33_UOTG";
+-				regulator-min-microvolt = <3300000>;
++				regulator-min-microvolt = <3000000>;
+ 				regulator-max-microvolt = <3300000>;
+ 				regulator-always-on;
+ 				op_mode = <1>; /* Normal Mode */
+@@ -301,7 +317,7 @@ ldo17_reg: LDO17 {
+ 			/* Used by HSIC */
+ 			ldo18_reg: LDO18 {
+ 				regulator-name = "VDDIOPERI_28";
+-				regulator-min-microvolt = <3300000>;
++				regulator-min-microvolt = <2800000>;
+ 				regulator-max-microvolt = <3300000>;
+ 				regulator-always-on;
+ 				op_mode = <1>; /* Normal Mode */
+@@ -315,21 +331,21 @@ ldo19_reg: LDO19 {
+ 			ldo20_reg: LDO20 {
+ 				regulator-name = "VDD28_CAM";
+ 				regulator-min-microvolt = <1800000>;
+-				regulator-max-microvolt = <2800000>;
++				regulator-max-microvolt = <3000000>;
+ 				op_mode = <1>; /* Normal Mode */
+ 			};
+ 
+ 			ldo21_reg: LDO21 {
+ 				regulator-name = "VDD28_AF";
+ 				regulator-min-microvolt = <1800000>;
+-				regulator-max-microvolt = <2800000>;
++				regulator-max-microvolt = <3000000>;
+ 				op_mode = <1>; /* Normal Mode */
+ 			};
+ 
+ 			ldo22_reg: LDO22 {
+ 				regulator-name = "VDDA28_2M";
+ 				regulator-min-microvolt = <2800000>;
+-				regulator-max-microvolt = <2800000>;
++				regulator-max-microvolt = <3300000>;
+ 				op_mode = <1>; /* Normal Mode */
+ 			};
+ 
+@@ -342,14 +358,14 @@ ldo23_reg: LDO23 {
+ 
+ 			ldo24_reg: LDO24 {
+ 				regulator-name = "VDD33_A31";
+-				regulator-min-microvolt = <3300000>;
++				regulator-min-microvolt = <3000000>;
+ 				regulator-max-microvolt = <3300000>;
+ 				op_mode = <1>; /* Normal Mode */
+ 			};
+ 
+ 			ldo25_reg: LDO25 {
+ 				regulator-name = "VDD18_CAM";
+-				regulator-min-microvolt = <1800000>;
++				regulator-min-microvolt = <1200000>;
+ 				regulator-max-microvolt = <1800000>;
+ 				op_mode = <1>; /* Normal Mode */
+ 			};
+@@ -371,14 +387,14 @@ ldo27_reg: LDO27 {
+ 			ldo28_reg: LDO28 {
+ 				regulator-name = "DVDD12";
+ 				regulator-min-microvolt = <1200000>;
+-				regulator-max-microvolt = <1200000>;
++				regulator-max-microvolt = <1800000>;
+ 				op_mode = <1>; /* Normal Mode */
+ 			};
+ 
+ 			buck1_reg: BUCK1 {
+ 				regulator-name = "vdd_mif";
+ 				regulator-min-microvolt = <850000>;
+-				regulator-max-microvolt = <1100000>;
++				regulator-max-microvolt	= <1100000>;
+ 				regulator-always-on;
+ 				regulator-boot-on;
+ 				op_mode = <1>; /* Normal Mode */
+@@ -432,7 +448,7 @@ buck6_reg: BUCK6 {
+ 			buck7_reg: BUCK7 {
+ 				regulator-name = "pvdd_buck7";
+ 				regulator-min-microvolt = <750000>;
+-				regulator-max-microvolt = <2000000>;
++				regulator-max-microvolt = <2050000>;
+ 				regulator-boot-on;
+ 				regulator-always-on;
+ 				op_mode = <1>; /* Normal Mode */
+-- 
+2.34.1
+
