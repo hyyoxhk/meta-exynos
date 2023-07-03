@@ -27,7 +27,7 @@ U_BOOT_BRANCH = "v{U_BOOT_VERSION}-itop"
 
 BBCLASSEXTEND = "devupstream:target"
 SRC_URI:class-devupstream = "git://github.com/hyyoxhk/u-boot.git;protocol=https;branch=${U_BOOT_BRANCH}"
-SRCREV:class-devupstream = "075ea2b6f7a4ccf9375a0b1020769ea69451ac16"
+SRCREV:class-devupstream = "168f39514d4be2a6d1d74a01ed3a9baee28b7e44"
 
 SOURCE_SELECTION ?= "tarball"
 
